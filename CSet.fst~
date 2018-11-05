@@ -1,0 +1,212 @@
+module CSet
+
+open FStar.Tactics
+
+module L = FStar.List.Tot
+
+let rec no_dup (#t:eqtype) (a:list t) = match a with
+  | [] -> True
+  | h::t -> if L.mem h t then False else no_dup t
+
+let set (a:eqtype) : Type = (r:(list a) { no_dup r })
+
+let rec mem (#t:eqtype) (x:t) (a:set t) = L.mem x a
+
+let add_in_set' (#t:eqtype) (s:list t { no_dup s }) (x: t) : set t = if L.mem x s then s else x::s
+let add_in_set (#t:eqtype) (s:set t) (x: t) : set t = add_in_set' s x
+
+let union' (#t:eqtype) (a:list t) (b:set t) : set t = L.fold_left add_in_set b a
+let union (#t:eqtype) (a:set t) (b:set t) : set t = union' a b
+
+let rec intersect (#t:eqtype) (a b:set t) : set t = match a with
+  | [] -> []
+  | h::t -> let l = intersect t b in if mem h b then add_in_set l h else l 
+
+let rec lemma_intersect_and (#t:eqtype) (a b:set t) (x: t) : Lemma (mem x a /\ mem x b ==> mem x (intersect a b)) = match a with
+  | [] -> ()
+  | h::t -> if x = h then ()
+		   else lemma_intersect_and t b x
+
+let set_to_list (#t:eqtype) (a:set t) : list t = a
+let list_to_set (#t:eqtype) (a:list t) : set t = union' a []
+
+let rec findAndRemove (#t:eqtype) (a:set t) (x:t): (bool * set t) = match a with
+  | [] -> (false, [])
+  | h::t -> if h = x then (true, t) else let (rb,rl) = findAndRemove t h in (rb, add_in_set rl h)
+
+let rec remove (#t:eqtype) (a:set t) (x:t): set t = match a with
+  | [] -> []
+  | h::t -> if h = x then t else add_in_set (remove t h) h
+
+let rec remove_mem_dec (#t:eqtype) (x:t) (a:set t{ mem x a }) : Lemma (L.length (remove a x) = L.length a - 1) = match a with
+  | [] -> ()
+  | h::t -> if h = x then () else admit ()// assert (mem x t); remove_mem_dec x t
+
+let rec equal (#t:eqtype) (a:set t) (b:set t) : Type0 =
+  match a with
+  | [] -> b = []
+  | h::t -> let (rb, rl) = findAndRemove b h in if rb then equal t rl else false
+
+
+let rec lemma_intersect_empty_l (#t:eqtype) (a:set t) (x:t) : Lemma (mem x (intersect [] a) = false) = ()
+let rec lemma_intersect_empty_r (#t:eqtype) (a:set t) (x:t) : Lemma (mem x (intersect a []) = false) = match a with
+  | [] -> ()
+  | h::t -> lemma_intersect_empty_r t x
+
+let rec lemma_mem_empty (#t:eqtype) (x: t) : Lemma (mem x [] = false) = ()
+
+// let rec lemma_intersect_comm (#t:eqtype) (a b:set t) (x:t) : Lemma (mem x (intersect a b) = mem x (intersect b a)) = match a with
+//   | [] -> lemma_intersect_empty_r b x; assert (mem x (intersect b []) = false); ()
+//   | h::t -> if h = x then (assert (mem x (intersect a b)); ()) else admit ()//lemma_intersect_sym t b x
+
+open FStar.Tactics.PatternMatching
+
+open FStar.Tactics.Logic
+
+let rec lemma_intersect_left (#t:eqtype) (a b:set t) (x: t) : Lemma (mem x (intersect a b) ==> mem x a) = match a with
+  | [] -> ()
+  | h::t -> if x = h then () else lemma_intersect_left (remove a h) b x
+
+
+let rec lemma_intersect_not' (#t:eqtype) (a b:set t) (x: t) (ev:mem x b == false) : Lemma (mem x (intersect a b) == false) = match a with
+  | [] -> ()
+  | h::t -> lemma_intersect_not' t b x ev
+  
+let rec lemma_intersect_not (#t:eqtype) (a b:set t) (x: t) : Lemma (mem x b == false ==> mem x (intersect a b) == false) =
+  assert_by_tactic (mem x b == false ==> mem x (intersect a b) == false) (fun () -> 
+    let mem_x_b = implies_intro () in
+    apply_lemma (quote (lemma_intersect_not' a b x));
+    apply (binder_to_term mem_x_b);
+    //exact_hyp (mem x b == false) mem_x_b;
+    qed ()
+  )
+
+//let rec lemma_intersect_not_rev (#t:eqtype) (a b:set t) (x:t) : Lemma (mem x (intersect a b))
+let rec middle_lemma (#t:eqtype) (a b:set t) (h x: t) (ev:no_dup (h::a)) : Lemma (not (h = x) ==> mem x (intersect (h::a) b) == mem x (intersect a b)) = ()
+let rec middle_lemma' (#t:eqtype) (a b:set t) (h x: t) : Lemma (no_dup (h::b) ==> not (h = x) ==> mem x (intersect a (h::b)) == mem x (intersect a b)) =
+assert_by_tactic (no_dup (h::b) ==> (h <> x) ==> mem x (intersect a (h::b)) == mem x (intersect a b)) (fun () -> 
+    let h_no_dup = implies_intro () in
+    let neg_hx = implies_intro () in
+    //unfold_def (quote intersect);
+    destruct (quote (set_to_list a));
+      // a = []
+        unfold_def (quote set_to_list);
+        let sinfo = intro () in
+        rewrite sinfo;
+        unfold_def (quote intersect); trefl ();
+      // a = h::a'
+        unfold_def (quote set_to_list);
+        let (hd, tl, breq) = (intro (), intro_as "tl", intro ()) in
+        assert (1 == 1);
+        //assert_by_tactic (mem x (intersect (h::a) b) == mem x (intersect a b)) (fun () -> apply (`middle_lemma));
+        //apply_lemma (`middle_lemma);// (binder_to_term tl) (`h::b) (binder_to_term hd) (binder_to_term x));// tl (h::b) hd x);
+        //unfold_def (quote intersect);
+        rewrite breq;
+    // (quote (intersect a (h::b)));
+    //inversion (binder_to_ neg_hx);
+    //simplify_eq_implication ();
+    qed ()
+  )
+  
+  match a with
+  | [] -> ()
+  | ah::at -> match b with
+            | [] -> (
+              //assert (not (h = x));
+              assert (mem x (intersect a (h::[])) == false);
+              admit ()
+            )
+            | bh::bt -> admit ()//middle_lemma' at bt bh x
+
+let rec lemma_intersect_right (#t:eqtype) (a b:set t) (x: t) : Lemma (ensures (mem x (intersect a b) ==> mem x b))
+                                                                     (decreases %[L.length a; L.length b])= match a with
+  | [] -> ()
+  | h::t -> if h = x then (
+                        if (mem h b) then ()
+                                     else (lemma_intersect_not a b x; assert (mem x (intersect a b) = false); ())
+                   ) else (
+                        if (mem h b) then (
+                                          remove_mem_dec h b;
+                                          middle_lemma t b;
+                                          assert (L.length (remove b h) < L.length b);
+                                          assert (mem x (intersect a b) == mem x (intersect t (remove b h)));
+                                          lemma_intersect_right a (remove b h) x;
+                                          ()
+                                     ) else admit ()
+                   )
+                   
+
+let rec lemma_intersect_and' (#t:eqtype) (a b:set t) (x: t) : Lemma (ensures (mem x (intersect a b) ==> mem x a /\ mem x b)) (decreases %[L.length a; L.length b])//%[a; b])
+= Tactics.Effect.assert_by_tactic (mem x (intersect a b) ==> mem x a /\ mem x b) (fun () -> 
+  let mem_x_intersect = implies_intro () in
+  squash_intro ();
+  //left ();
+  destruct (quote (mem x (intersect a b) = true));
+  //Tactics.Logic.l_revert ();
+  //let _ = unsquash (quote (mem x a /\ mem x b)) i
+  //left ();
+  qed ()
+)
+
+//Tactics.Logic.implies_intro
+
+
+
+// match a with
+//   | [] -> ()
+//   | h::t -> if mem h b then (
+//                           assert (mem h (intersect a b));
+//                           if h = x then ()
+//                                     else (
+//                                       assert (mem x (intersect a b) = mem x (intersect a (remove b h)));
+//                                       remove_mem_dec h b;
+//                                       lemma_intersect_and' a (remove b h) x;
+//                                       ()
+//                                     ) 
+//                      ) else (admit ())
+
+
+// match intersect a b with
+//   | [] -> ()
+//   | h::t -> if h = x then
+// 	     if mem h a then admit () else admit ()
+// 	  else 
+//              if mem h a then admit ()// (remove_mem_dec h a; lemma_intersect_or (remove a h) b x)
+//                         else admit ()
+          
+          
+//           // (
+// 	    if mem h a then 
+//               //remove_mem_dec h a//;
+// 	      // lemma_intersect_or (remove a h) b x
+// 	    else
+// 	      () //lemma_intersect_or a (remove b h) x 
+// 	  )
+
+
+
+//   (match a with
+// 	  | [] -> () // stupid
+// 	  | a0::t -> if a0 = h then (admit ()) else (
+// 			   match b with
+// 			   | [] -> admit ()
+// 			   | b0::t -> admit ()
+// 			 )
+// 	  )
+
+//   | h::t -> if x = h then ()
+// 		   else (match b with
+// 		     | [] -> admit () // lemma_intersect_and [] a x
+// 		     | hh::tt -> if x = hh then () else admit ()// lemma_intersect_and t tt x
+// 		     )
+		     
+
+
+let rec subset (#t:eqtype) (a b:set t) : bool = match a with
+  | [] -> true
+  | h::t -> if mem h a then subset t (remove b h) else false 
+
+let rec lemma_subset (#t:eqtype) (a b:set t) : Lemma (subset (intersect a b) a) = match intersect a b with
+  | [] -> ()
+  | h::t -> assert (mem h a); lemma_subset (remove a h) (remove b h)
+
