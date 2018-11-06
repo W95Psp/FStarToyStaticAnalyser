@@ -1,9 +1,13 @@
 module ExtInt
 
+open FStar.Mul
+
 type extInt = | Infty : bool -> extInt
               | SomeInt : int -> extInt
 let plusInfty = Infty true
 let minusInfty = Infty false
+let zero = SomeInt 0
+
 
 let eq (a:extInt) (b:extInt) = match a with
   | Infty a_sign -> (match b with
@@ -25,13 +29,33 @@ let lt (a:extInt) (b:extInt) = match a with
 		| Infty _ -> b = plusInfty 
 		| SomeInt w -> v < w)
 
-let le a b = (eq a b) || (lt a b)
-let ge a b = not (lt a b)
-let gt a b = (ge a b) && (not (eq a b))
+let le a b : bool = (eq a b) || (lt a b)
+let ge a b : bool = not (lt a b)
+let gt a b : bool = (ge a b) && (not (eq a b))
 
 let min a b = if lt a b then a else b
 let max a b = if lt a b then b else a
 
+
+let plus (a b:extInt) = match a with
+  | Infty _ -> a
+  | SomeInt a' -> match b with
+                 | Infty _ -> b
+                 | SomeInt b' -> SomeInt (a'+b')
+let unaryMinus (a:extInt) = match a with
+  | Infty sign -> Infty (not sign)
+  | SomeInt a' -> SomeInt (- a')
+let minus (a b:extInt) = a `plus` unaryMinus b
+
+
+let rec times (a b:extInt): Tot extInt (decreases (match b with | Infty _ -> 0 | _ -> 1)) = match b with
+  | Infty sb -> if a `gt` zero then (Infty sb)
+          else if a `lt` zero then (Infty (not sb))
+          else                     (SomeInt 0)
+  | SomeInt vb -> match a with
+                 | Infty _ -> times b a
+                 | SomeInt va -> SomeInt (vb * va)
+    
 
 let _ = assert (forall (a b:int). a < b ==> (SomeInt a) `lt` (SomeInt b))
 let _ = assert (forall (a:int). (SomeInt a) `lt` plusInfty)

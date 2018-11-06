@@ -266,10 +266,7 @@ let rec subset (#t:eqtype) (a b:set t) : bool = match a with
   | [] -> true
   | h::t -> if mem h b then subset t (remove b h) else false 
 
-// let rec lemma_subset_trans (#t:eqtype) (a:set t) (b:set t{subset a b}) (c:set t{subset b c}) : Lemma (subset a c) = match a with
-//   | [] -> ()
-//   | ha::ta -> if mem ha c then
-//                lemma_subset_trans a
+
 
 // let rec lemma_subset_implies_mem (#t:eqtype) (a:set t) (b:set t) (x:t{mem x a}) : Lemma (subset a b ==> mem x b) = match a with
 //   | [] -> ()
@@ -280,6 +277,9 @@ let rec subset (#t:eqtype) (a b:set t) : bool = match a with
 //             )
 
 let rec lemma_remove' (#t:eqtype) (a:set t) (x:t) (y:t{x <> y}) : Lemma (List.Tot.Base.mem x a ==> mem x (remove a y)) = admit ()
+let rec lemma_remove_irrevelant (#t:eqtype) (s:set t) (x:t{~(mem x s)}) : Lemma (remove s x == s) = match s with
+  | [] -> ()
+  | hd::tl -> lemma_remove_irrevelant tl x
 
 let rec lemma_subset_remove (#t:eqtype) (a b:set t) (h:t{no_dup (h::a)})
   : Lemma (ensures (subset (h::a) b ==> subset a (remove b h)))
@@ -333,24 +333,33 @@ let rec lemma_subset_add (#t:eqtype) (a:set t) (b:set t{subset a b}) (h:t{no_dup
 // let rec lemma_still_subset_behead (#t:eqtype) (a:set t) (b:set t) (h:t{no_dup (h::a)}) : Lemma (subset (h::a) b ==> subset a b) =
 //    lemma_subset_add a b h
   
-let rec lemma_still_subset_add (#t:eqtype) (a: set t) (b:set t{subset a b}) (h: t{~(mem h b)}) : Lemma (subset a (h::b)) = match a with
-  | [] -> ()
-  | hd::tl -> lemma_still_subset_add tl b h  
+// let rec lemma_still_subset_add (#t:eqtype) (a: set t) (b:set t{subset a b}) (h: t{~(mem h b)}) : Lemma (subset a (h::b)) = match a with
+//   | [] -> ()
+//   | hd::tl -> lemma_still_subset_add tl b h  
 
-let rec lemma_subset_forall (#t:eqtype) (a:set t) (b:set t{subset a b}) (x: t) : Lemma (mem x a ==> mem x b) = match a with
-  | [] -> ()
-  | hd::tl -> if hd = x then
-               if mem hd b then ()
-               else (
-                 lemma_subset_forall a (remove b hd) x
-               )
-            else admit ()// lemma_subset_forall hd b x
+// let rec lemma_subset_forall (#t:eqtype) (a:set t) (b:set t{subset a b}) (x: t) : Lemma (mem x a ==> mem x b) = match a with
+//   | [] -> ()
+//   | hd::tl -> if hd = x then
+//                if mem hd b then ()
+//                else (
+//                  lemma_subset_forall a (remove b hd) x
+//                )
+//             else admit ()// lemma_subset_forall hd b x
 
-let rec lemma_subset (#t:eqtype) (a b:set t) : Lemma (subset (intersect a b) a) = match intersect a b with
-  | [] -> ()
-  | h::t -> 
-        assert (mem h (intersect a b));
-        lemma_memIntersect_memRight (intersect a b) a h;
-        assert (mem h a);
-        lemma_subset (remove a h) (remove b h)
+// let rec lemma_subset (#t:eqtype) (a b:set t) : Lemma (subset (intersect a b) a) = match intersect a b with
+//   | [] -> ()
+//   | h::t -> 
+//         assert (mem h (intersect a b));
+//         lemma_memIntersect_memRight (intersect a b) a h;
+//         assert (mem h a);
+//         lemma_subset (remove a h) (remove b h)
 
+//let rec lemma_subset (#t:eqtype) (a:set t) (b:set t) 
+let rec lemma_no_dup_remove (#t:eqtype) (l:list t{no_dup l}) (x:t) : Lemma (no_dup (remove l x)) = ()
+
+let rec lemma_subset_trans (#t:eqtype) (a:set t) (b:set t{subset a b}) (c:set t{subset b c}) : Lemma (subset a c) = admit ()
+let rec lemma_subset_ref (#t:eqtype) (a: set t) : Lemma (subset a a) = admit ()
+let rec lemma_subset_sym (#t:eqtype) (a b:set t) : Lemma (subset a b /\ subset b a ==> a `equal` b) = admit ()
+
+
+let rec singleton (#t:eqtype) (a:t) : set t = [a]
