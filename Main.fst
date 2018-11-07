@@ -147,9 +147,9 @@ let test = norm_lBExp (emptyState ()) (LBExpLitt true)
 
 let xxx = run (emptyState ()) (v 2 +. v 3)
 
-let main = 
-  let i = FStar.IO.input_int () in
-  FStar.IO.print_string (string_of_int (xx i))
+// let main = 
+//   let i = FStar.IO.input_int () in
+//   FStar.IO.print_string (string_of_int (xx i))
 
 let isPartialOrder #a (f:(a -> a -> bool)) =
     (forall a    . f a a)
@@ -503,9 +503,46 @@ let hey2 = static_analysis_instr myState prog3
 let hey3 = analyse_bexp myState ((!! a) <=. (v 4))
 
 
+let fib' (max:int) =
+  (a =. (v 1)) >>
+  (b =. (v 1)) >>
+  (i =. (v 0)) >>
+  (while (!! i <=. (v max)) Do (
+    (tmp =. (!! a)) >>
+    (a =. (!! b)) >>
+    (b =. (!! tmp) +. (!! b)) >>
+    (i =. (!! i) +. (v 1))
+  ) End)
+let hey4 = static_analysis_instr myState (fib 3)
+open FStar.String
+
 //let _ = assert (em_get hey3 "a"  == magic ()) by (compute(); qed ())
 //let _ = assert (em_equal aeq (hey) (hey2)) by (compute (); qed ())
-let _ = assert (em_get hey "a" == magic()) by (compute (); qed ())
+//let _ = assert (em_get hey4 "i" == magic()) by (compute (); qed ()) 
+
+class hasToString t = {
+  toString: t -> string
+}
+instance _ : hasToString extInt =  { toString = fun i -> match i with
+    | SomeInt n -> string_of_int n
+    | _ -> if i = plusInfty then "+inf" else "-inf"}
+
+let join sep l = List.Tot.Base.fold_right (fun a b -> (if a = "" then sep else "") `strcat` (a `strcat` b)) l ""
+
+instance _ : hasToString interval =  { toString = fun i ->  match i with
+  | EmptyInterval -> "[]"
+  | SomeInterval l (r:extInt) -> join "" ["[";toString l;" ; ";toString r;"]"]}
+
+instance emHasToString #a [| hasToString a |] : hasToString (enumerableMap a) =  { toString = fun i -> 
+  "{" `strcat`
+         join " \n " (List.Tot.Base.map (fun s -> s `strcat` " = " `strcat` toString (em_get i s)) i._em_keys)
+      `strcat` "}"
+}
+
+
+let main = 
+  let i = FStar.IO.input_int () in
+  FStar.IO.print_string (emHasToString.toString hey4)
 
 
 let rec listToState (#a:Type) [| hasDefaultValue a |] (lst:list (tuple2 string a))
@@ -517,9 +554,9 @@ let test0 = static_analysis_aexp (listToState [
   ("hey", SomeInterval (SomeInt 2) (SomeInt 4))
 ]) (v 10 *. !! "hey")
  
-let _ = assert (test0 == magic ()) by (compute ();qed ())
+//let _ = assert (test0 == magic ()) by (compute ();qed ())
 
-let verif_test0 = assert (test0 == SomeInterval (SomeInt 4) (SomeInt 4))
+//let verif_test0 = assert (test0 == SomeInterval (SomeInt 4) (SomeInt 4))
 
 //let hey =  static_analysis_aexp (emptyState ()) 
 //hey
