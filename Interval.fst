@@ -134,6 +134,11 @@ let basic_le_intervals (i j:interval) = match i with
                                                )
                                             else Nothing
 
+let equal (a b:interval) = match (a, b) with
+  | (EmptyInterval, EmptyInterval) -> true
+  | (SomeInterval a b, SomeInterval c d) -> a=c && b=d
+  | _ -> false
+
 //Lemma (values_to_interval )
 
 // let rec lemma_includes_wide 

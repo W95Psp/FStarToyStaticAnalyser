@@ -26,13 +26,13 @@ type lBExp =
   | LBExpAnd : lBExp -> lBExp -> lBExp
   | LBExpOr  : lBExp -> lBExp -> lBExp
   | LBExpEq  : lAExp -> lAExp -> lBExp
-  | LBExpLt  : lAExp -> lAExp -> lBExp
+  | LBExpLe  : lAExp -> lAExp -> lBExp
 
 let ( !.  ) = LBExpNot
 let ( &&. ) = LBExpAnd
 let ( ||. ) = LBExpOr
 let ( ==. ) = LBExpEq
-let ( <.  ) = LBExpLt
+let ( <=. ) = LBExpLe
 
 class litteral_lift a b = {
   v : a -> b
@@ -41,7 +41,7 @@ instance _ : litteral_lift int    lAExp = { v = LAExpLitt }
 instance _ : litteral_lift bool lBExp = { v = LBExpLitt }
 
 let ( !! ) = LAExpVar
-
+ 
 type lInstr =
   | LInstrAssign : string -> lAExp -> lInstr
   | LInstrSkip   : lInstr
@@ -58,8 +58,7 @@ type elseTag = | Else
 type endTag  = | End
 type doTag   = | Do
 
-val iF : int -> int
-let iF v = v
+let iF (cond:lBExp) (_:thenTag) (b1:lInstr) (_:elseTag) (b2:lInstr) (_:endTag) : lInstr = LInstrIf cond b1 b2
 
 val while : lBExp -> doTag -> lInstr -> endTag -> lInstr
 let while cond _ body _ = LInstrWhile cond body
@@ -75,7 +74,7 @@ let fib (max:int) =
   (a =. (v 1)) >>
   (b =. (v 1)) >>
   (i =. (v 0)) >>
-  (while (!! i <. (LAExpLitt max)) Do (
+  (while (!! i <=. (LAExpLitt max)) Do (
     (tmp =. (!! a)) >>
     (a =. (!! b)) >>
     (b =. (!! tmp) +. (!! b)) >>
@@ -113,7 +112,7 @@ let rec norm_lBExp state exp =
   match exp with
   | LBExpLitt v -> v
   | LBExpEq a b -> fA a b ( fun a b -> a = b )
-  | LBExpLt a b -> fA a b (<)
+  | LBExpLe a b -> fA a b (<=)
   | LBExpAnd a b-> fB a b (&&)
   | LBExpOr a b -> fB a b ( || )
   | LBExpNot a -> norm_lBExp state a
@@ -211,6 +210,7 @@ class hasGaloisConnection (c:eqtype) a = {
    ; alpha : (f:(CSet.set c -> a){ isMonotonic f })
    ; galois_wf : (sa:a) -> (sc:CSet.set c) ->
 		 Lemma (cset_to_set sc `l_po` (gamma sa) /\ sa `l_po` (alpha sc))
+   ; alpha': c -> a
 }
 
 let mkGaloisConnection (#c:eqtype) #a
@@ -227,9 +227,8 @@ let mkGaloisConnection (#c:eqtype) #a
       ; gamma     = gamma
       ; alpha     = alpha
       ; galois_wf = galois_wf
+      ; alpha'    = (fun c -> alpha (CSet.singleton c))
     }
-
-
 
 instance _ : hasPartialOrder interval = { po = includes }
 
@@ -282,84 +281,91 @@ instance _ : hasGaloisConnection int interval = mkGaloisConnection
                                  (admitP (isMonotonic interval_alpha); interval_alpha)
                                  (magic ())
 
-class hasAbstractDomain (c:eqtype) a = {
-  galois_connection : hasGaloisConnection c a;
+class hasAbstractDomain a = {
   union : a -> a -> a;
   inter : a -> a -> a;
   bottom: a;
   top   : a;
   widen : a -> a -> a;
   assign: string -> a -> a;
-  op_eq : a -> a -> a;
+  aeq : a -> a -> bool;
 }
 
-let mkAbstractDomain (#c:eqtype) #a
-                                  [| hasGaloisConnection c a |]
-                                  union inter bottom top widen assign op_eq
+let mkAbstractDomain union inter bottom top widen assign aeq
     = {
-        galois_connection = solve
-      ; union = union
+        union = union
       ; inter = inter
       ; bottom = bottom
       ; top = top
       ; widen = widen
       ; assign = assign
-      ; op_eq = op_eq
+      ; aeq = aeq
     }
 
-class hasAbstractOperators (c:eqtype) a = {
-    abstract_domain:  hasAbstractDomain c a
+class hasAbstractOperators a = {
+    abstract_domain:  hasAbstractDomain a
   ; default_value:    hasDefaultValue a
   ; a_op_unary_minus: a -> a
-  ; a_op_unary_lift:  c -> a
   ; a_op_plus:        a -> a -> a
   ; a_op_minus:       a -> a -> a
   ; a_op_times:       a -> a -> a
 }
 
-let mkAbstractOperators (#c:eqtype) #a [| hasAbstractDomain c a |] [| hasDefaultValue a |]
+let backward_aop_le0         #a [| hasAbstractOperators a |] [| hasAbstractDomain a |] (x r  :a) (lessThanZero:a)
+    = x `inter` lessThanZero
+let backward_aop_unary_minus #a [| hasAbstractOperators a |] [| hasAbstractDomain a |] (x r  :a)
+    = x `inter` (a_op_unary_minus r)
+let backward_aop_plus        #a [| hasAbstractOperators a |] [| hasAbstractDomain a |] (x y r:a)
+    = (x `inter` (r `a_op_minus` y), y `inter` (r `a_op_minus` r)) 
+let backward_aop_minus       #a [| hasAbstractOperators a |] [| hasAbstractDomain a |] (x y r:a)
+    = (x `inter` (r `a_op_plus` y), y `inter` (x `a_op_minus` r)) 
+// let backward_aop_mul #a [| hasAbstractOperators a |] [| hasAbstractDomain a |] (x y r:a)
+//     = (x `inter` (r `a_op` y), y `inter` (r `a_op_minus` r))
+
+// let backward_aop_lt #a [| hasAbstractOperators a |] = 
+
+let mkAbstractOperators #a [| hasAbstractDomain a |] [| hasDefaultValue a |]
   a_op_unary_minus a_op_plus a_op_minus a_op_times
   = {
     abstract_domain  = solve
   ; default_value    = solve
-  ; a_op_unary_lift  = (fun c -> galois_connection.alpha (CSet.singleton c))
   ; a_op_unary_minus = a_op_unary_minus
   ; a_op_plus        = a_op_plus
   ; a_op_minus       = a_op_minus
   ; a_op_times       = a_op_times
   }
 
-instance intervalDomain : hasAbstractDomain int interval = mkAbstractDomain
+let rec interval_widen (i j:interval) = match (i, j) with
+  | (SomeInterval a b, SomeInterval c d) -> SomeInterval (if ExtInt.le a c then a else ExtInt.minusInfty)
+                                                        (if ExtInt.ge b d then b else ExtInt.plusInfty)
+  | (EmptyInterval, EmptyInterval) -> i
+  | (a, EmptyInterval) -> a
+  | (EmptyInterval, a) -> a
+
+instance intervalDomain : hasAbstractDomain interval = mkAbstractDomain #interval
                           Interval.union
                           Interval.inter
            (*bottom*)     Interval.EmptyInterval
            (*top*)        (Interval.SomeInterval ExtInt.minusInfty ExtInt.plusInfty)
-           (*widen*)      Interval.union
-           (*assign*)     (fun _ i -> i)
-                          Interval.union
+           (*widen*)      interval_widen
+           (*assign*)     (fun _ (i: interval) -> i)
+                          Interval.equal
 
 instance _ : hasDefaultValue interval = {def = (SomeInterval (SomeInt 0) (SomeInt 0))}
 
-instance intervalOperators : hasAbstractOperators int interval = mkAbstractOperators
+instance intervalOperators : hasAbstractOperators interval = mkAbstractOperators
                           Interval.unaryMinus
                           Interval.plus
                           Interval.minus
                           Interval.times
-                          
-noeq
-type ctx (#c:eqtype) #a = {
-  memory: string -> state a
-}
 
-
-//let static_analysis_aexp (#c:eqtype{c==int}) #a [| hasAbstractOperators c a |]
-let rec static_analysis_aexp #a [| hasAbstractOperators int a |]
+let rec static_analysis_aexp #a [| hasGaloisConnection int a |] [| hasAbstractOperators a |]
                     (st:state a)
                     (exp:lAExp)
                     : a
   = let rec h (exp:lAExp): a = 
          match exp with
-       | LAExpLitt n       -> a_op_unary_lift n
+       | LAExpLitt n       -> alpha' n
        | LAExpVar  varName -> st varName
        | LAExpPlus a b     -> (h a) `a_op_plus` (h b)
        | LAExpMinus a b    -> (h a) `a_op_minus` (h b)
@@ -381,57 +387,124 @@ let em_combine (m1 m2:enumerableMap 'a) (f:'a -> 'a -> 'a) = {
    _em_data = (fun key -> f (em_get m1 key) (em_get m2 key))
  ; _em_keys = CSet.union m2._em_keys m1._em_keys
 }
+
 let em_equal #a (myEq:a->a->bool) (m1 m2:enumerableMap a) =
     let f1 = em_get m1 in
     let f2 = em_get m2 in
     let rec h l = (match l with
       | [] -> true
-      | hd::tl -> if f1 hd `myEq` f2 hd then h tl else false  
+      | hd::tl -> if f1 hd `myEq` f2 hd then h tl else false
     ) in h (CSet.union m2._em_keys m1._em_keys)
 
-let rec interval_widen (i j:interval) = match (i, j) with
-  | (SomeInterval a b, SomeInterval c d) -> SomeInterval (if ExtInt.le a c then a else ExtInt.minusInfty)
-                                                        (if ExtInt.ge b d then b else ExtInt.plusInfty)
-  | (EmptyInterval, EmptyInterval) -> i
-  | (a, EmptyInterval) -> a
-  | (EmptyInterval, a) -> a
+// let rec is_bexp_normalized (e:lBExp) = match e with
+//   | LBExpLitt  _ -> False
+//   | LBExpNot   b -> is_bexp_normalized b
+//   | LBExpAnd a b -> is_bexp_normalized a /\ is_bexp_normalized b
+//   | LBExpOr  a b -> is_bexp_normalized a /\ is_bexp_normalized b
+//   | LBExpEq  a b -> is_bexp_normalized a /\ is_bexp_normalized b
+//   | LBExpLe  a b -> is_bexp_normalized a /\ b == (v 0)
+let rec backward_analysis_aexp #a [| hasGaloisConnection int a |] [| hasAbstractOperators a |]
+                                  [| hasAbstractDomain a |]
+                    (st:enumerableMap a)
+                    (exp:lAExp)
+                    (aim:a)
+                    : Tot (enumerableMap a) (decreases exp)
+= let f exp = static_analysis_aexp (em_get st) exp in
+  match exp with
+  | LAExpLitt n       -> st //(alpha' n) `inter` aim
+  | LAExpVar  varName -> em_set st varName aim//(st varName) ``
+  | LAExpPlus e1 e2   -> let (aim1, aim2):(tuple2 a a) = backward_aop_plus (f e1) (f e2) aim in (* e1 + e1 should fit in aim *)
+                        let st' = backward_analysis_aexp st e1 aim1 in
+                        backward_analysis_aexp st' e2 aim2
+  | LAExpMinus e1 e2  -> let (aim1, aim2):(tuple2 a a) = backward_aop_minus (f e1) (f e2) aim in (* e1 + e1 should fit in aim *)
+                        let st' = backward_analysis_aexp st e1 aim1 in
+                        backward_analysis_aexp st' e2 aim2
+  | LAExpMult a b    ->  st (*todo*)//(h a) `a_op_times` (h b)
 
-//let rec em_bigger  
+class hasLessOrZero a = {
+   lessOrZero: a
+}
+instance _ : hasLessOrZero interval = { lessOrZero = SomeInterval minusInfty (SomeInt 0) }
 
-let rec static_analysis_instr #a [| hasAbstractOperators int a |]// (#ad:hasAbstractDomain int a)
-                    (_inter: a -> a -> a) (*dirty hack*)
-                    (_eq: a -> a -> bool)
-                    (_w:  a -> a -> a)
+
+let rec bexp_count_not (e:lBExp): nat = match e with
+  | LBExpNot (LBExpEq _ _) -> 0
+  | LBExpNot x -> 1 + bexp_count_not x
+  | LBExpAnd x y -> bexp_count_not x + bexp_count_not y
+  | LBExpOr x y -> bexp_count_not x + bexp_count_not y
+  | _ -> 0
+
+let sad = let v = v 3 in (v <=. v) &&. (!. (v ==. v))
+//let _ = assert ((bexp_count_not sad, sad) == magic ()) by (compute (); qed ())
+
+let rec analyse_bexp #a [| hasAbstractOperators a |] [| hasAbstractDomain a |] [| hasGaloisConnection int a |] [| hasLessOrZero a |]
+                     (st:enumerableMap a)
+                     (exp:lBExp): Tot (enumerableMap a)
+                                  (decreases %[bexp_count_not exp; exp])
+  = match exp with
+  | LBExpLitt b -> if b then st (* supposing true doesn't bring anything new *)
+                       else {_em_data = (fun _ -> bottom); _em_keys = st._em_keys} (* variables should all be bottom *)
+  | LBExpNot (LBExpEq a b) -> backward_analysis_aexp st (a -. b) (alpha' 0)
+  | LBExpNot  b -> let rec apply_not (e:lBExp): (r:lBExp{bexp_count_not e >= bexp_count_not r}) = (match e with
+                          | LBExpNot e1    -> e1
+                          | LBExpAnd e1 e2 -> LBExpOr  (apply_not e1) (apply_not e2)
+                          | LBExpOr  e1 e2 -> LBExpAnd (apply_not e1) (apply_not e2)
+                          | LBExpLe  e1 e2 -> (e2 <=. e1) &&. (!. (e1 ==. e2))
+                          | LBExpEq  e1 e2 -> LBExpNot e
+                          | LBExpLitt   _  -> e
+                          ) in 
+                            let nexp = apply_not b in
+                               analyse_bexp st nexp
+  | LBExpAnd  a b -> em_combine (analyse_bexp st a) (analyse_bexp st b) inter
+  | LBExpOr   a b -> em_combine (analyse_bexp st a) (analyse_bexp st b) union
+  | LBExpEq   a b -> backward_analysis_aexp st (a -. b) (alpha' 0)//lessThanZero
+  | LBExpLe   a b -> backward_analysis_aexp st (a -. b) lessOrZero
+
+//let rec em_bigger
+let rec static_analysis_instr #a [| hasAbstractOperators a |] [| hasAbstractDomain a |] [| hasGaloisConnection int a |] [| hasLessOrZero a |]
                     (st:enumerableMap a)
                     (instr:lInstr)
                     : Tot (enumerableMap a) (decreases instr)
-  = match instr with
+  = let f = static_analysis_instr in
+    match instr with
   | LInstrAssign name v -> em_set st name (static_analysis_aexp (em_get st) v)
-  | LInstrSkip -> st
-  | LInstrSeq b1 b2 -> static_analysis_instr _inter _eq _w (static_analysis_instr _inter _eq _w st b1) b2 
-  | LInstrIf c b1 b2 -> let r1 = static_analysis_instr _inter _eq _w st b1 in
-                       let r2 = static_analysis_instr _inter _eq _w st b2 in
-                       em_combine r1 r2 _inter
-  | LInstrWhile c b1 -> let execOnce st = static_analysis_instr _inter _eq _w st b1 in
-                       let rec lookForFixPoint st: Tot (enumerableMap a) = // (decreases (admitP (False))) = 
-                         let new_st  = execOnce st in
-                         let widened = em_combine st new_st _w in 
-                         if   em_equal _eq st widened
-                         then widened // new_st
-                         else lookForFixPoint new_st//(admitP (%[new_st] << %[st]); new_st)
-                       in execOnce st
+  | LInstrSkip          -> st
+  | LInstrSeq b1 b2     -> static_analysis_instr (f st b1) b2 
+  | LInstrIf c b1 b2    -> let r1 = f (analyse_bexp st     c ) b1 in
+                          let r2 = f (analyse_bexp st (!. c)) b2 in
+                          em_combine r1 r2 union
+  | LInstrWhile cond b1 -> let apply_cond st = analyse_bexp st cond in
+                          let rec lookForFixPoint current_st: Tot (enumerableMap a) =
+                              let new_st  = static_analysis_instr (apply_cond current_st) b1 in
+                              let widened = em_combine new_st (apply_cond (em_combine current_st new_st widen)) union in 
+                                if   em_equal aeq current_st widened then widened
+                                else lookForFixPoint (admitP (%[widened] << %[current_st]); widened) in
+                          em_combine st (lookForFixPoint st) union
 
 let myProg = (
   (a =. (v 23)) >>
   (a =. (!! a) +. (!! b))
   )
 let myState : enumerableMap interval = 
-  em_set (state_to_em (emptyState ())) "b" (SomeInterval (SomeInt 2) (SomeInt 9))
+  em_set (
+    state_to_em (emptyState ())
+  ) "a" (SomeInterval (SomeInt 2) (SomeInt 9))
+
+let prog2 = (
+  //(a =. (v 23)) >>
+  (while ((!! a) <=. (v 40)) Do (    
+    a =. (!! a) +. (v 5)
+  ) End)
+)
+let prog3 = (a =. (v 28))
+
+let hey  = static_analysis_instr myState prog2
+let hey2 = static_analysis_instr myState prog3
+let hey3 = analyse_bexp myState ((!! a) <=. (v 4))
 
 
-
-let hey = static_analysis_instr Interval.inter (fun x y -> x = y) interval_widen myState myProg
-
+//let _ = assert (em_get hey3 "a"  == magic ()) by (compute(); qed ())
+//let _ = assert (em_equal aeq (hey) (hey2)) by (compute (); qed ())
 let _ = assert (em_get hey "a" == magic()) by (compute (); qed ())
 
 
@@ -443,7 +516,7 @@ let rec listToState (#a:Type) [| hasDefaultValue a |] (lst:list (tuple2 string a
 let test0 = static_analysis_aexp (listToState [
   ("hey", SomeInterval (SomeInt 2) (SomeInt 4))
 ]) (v 10 *. !! "hey")
-
+ 
 let _ = assert (test0 == magic ()) by (compute ();qed ())
 
 let verif_test0 = assert (test0 == SomeInterval (SomeInt 4) (SomeInt 4))
