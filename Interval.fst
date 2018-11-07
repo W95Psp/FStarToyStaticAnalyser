@@ -1,7 +1,17 @@
 module Interval
 
 open ExtInt
+open PartialOrder
 open FStar.List.Tot
+open FStar.Tactics.Typeclasses
+open ToString
+
+open AbstractDomain
+open GaloisConnection
+open DefaultValue
+
+open ZeroOrLess
+
 module G = FStar.GSet
 
 type interval = | EmptyInterval : interval
@@ -144,6 +154,8 @@ let equal (a b:interval) = match (a, b) with
   | (SomeInterval a b, SomeInterval c d) -> a=c && b=d
   | _ -> false
 
+instance _ : hasPartialOrder interval = { po = includes }
+
 //Lemma (values_to_interval )
 
 // let rec lemma_includes_wide 
@@ -151,3 +163,70 @@ let equal (a b:interval) = match (a, b) with
 //      (SomeInterval al ar:interval) (SomeInterval bl br:interval{includes a b})
 //      : Lemma (al `ge` )
 
+instance _ : hasToString interval =  { toString = fun i ->  match i with
+  | EmptyInterval -> "[]"
+  | SomeInterval l (r:extInt) -> join "" ["[";toString l;" ; ";toString r;"]"]}
+
+let interval_alpha set = values_to_interval (CSet.set_to_list set)
+
+let rec lemma_intervalAlpha_eq_modulo_order (a:CSet.set int) (b:CSet.set int{CSet.equal a b})
+    : Lemma (interval_alpha a == interval_alpha b) = admit ()
+
+let rec inteval_alpha_behead_both (hd:int)
+                  (l1:CSet.set int{CSet.no_dup (hd::l1)})
+                  (l2:CSet.set int{CSet.no_dup (hd::l2)})
+      : Lemma (interval_alpha l1 `po` interval_alpha l2 == interval_alpha (hd::l1) `po` interval_alpha (hd::l2))
+      = match l1 with
+      | [] -> (match l2 with
+        | [] -> ()
+        | h2::t2 -> admit () 
+        )
+      | _ -> admit ()
+
+let rec lemma_intervalAlpha_ind (hd:int) (l1:CSet.set int{CSet.no_dup (hd::l1)})
+                  (l2:CSet.set int{CSet.mem hd l2 /\ interval_alpha l1 `po` interval_alpha (CSet.remove l2 hd)})
+    : Lemma (interval_alpha (hd::l1) `po` interval_alpha l2) = 
+            assert (CSet.no_dup (CSet.remove l2 hd));
+              
+            admitP (CSet.no_dup (hd::(CSet.remove l2 hd)));
+            admitP (CSet.equal l2 (hd::(CSet.remove l2 hd)));
+            assert (CSet.mem hd l2);
+            lemma_intervalAlpha_eq_modulo_order l2 (hd::(CSet.remove l2 hd));
+            inteval_alpha_behead_both hd l1 (CSet.remove l2 hd)
+
+let rec interval_alpha_monotonicy' (l1:CSet.set int) (l2:CSet.set int{l1 `l_po` l2})
+  : Lemma (interval_alpha l1 `po` interval_alpha l2)
+  = match l1 with
+  | [] -> ()
+  | hd::tl -> CSet.lemma_subset_remove tl l2 hd;
+            assert (CSet.subset tl (CSet.remove l2 hd));
+            assert (CSet.mem hd l2);
+            interval_alpha_monotonicy' tl (CSet.remove l2 hd);
+            assert (interval_alpha tl `po` interval_alpha (CSet.remove l2 hd));
+            lemma_intervalAlpha_ind hd tl l2
+
+let _ = assert (isMonotonic gamma)
+
+instance _ : hasGaloisConnection int interval = mkGaloisConnection
+                                 gamma
+                                 (admitP (isMonotonic interval_alpha); interval_alpha)
+                                 (magic ())
+
+let rec interval_widen (i j:interval) = match (i, j) with
+  | (SomeInterval a b, SomeInterval c d) -> SomeInterval (if ExtInt.le a c then a else ExtInt.minusInfty)
+                                                        (if ExtInt.ge b d then b else ExtInt.plusInfty)
+  | (EmptyInterval, EmptyInterval) -> i
+  | (a, EmptyInterval) -> a
+  | (EmptyInterval, a) -> a
+
+instance intervalDomain : hasAbstractDomain interval = mkAbstractDomain #interval
+                          union
+                          inter
+           (*bottom*)     EmptyInterval
+           (*top*)        (SomeInterval ExtInt.minusInfty ExtInt.plusInfty)
+           (*widen*)      interval_widen
+           (*assign*)     (fun _ (i: interval) -> i)
+                          equal
+instance _ : hasDefaultValue interval = {def = (SomeInterval (SomeInt 0) (SomeInt 0))}
+instance _ : hasZeroOrLess interval = { zeroOrLess = SomeInterval minusInfty (SomeInt 0) }
+instance intervalOperators : hasAbstractOperators interval = mkAbstractOperators unaryMinus plus minus times

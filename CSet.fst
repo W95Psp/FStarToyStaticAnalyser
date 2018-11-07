@@ -6,7 +6,10 @@ Sets are simply lists without duplicates. Equality of two sets means their inner
 *)
 module CSet
 
+module GSet = FStar.GSet
 open FStar.Tactics
+open FStar.Tactics.Typeclasses
+
 module L = FStar.List.Tot
 
 (** Specify a list without duplicates *)
@@ -364,3 +367,5 @@ let rec lemma_subset_sym (#t:eqtype) (a b:set t) : Lemma (subset a b /\ subset b
 
 let rec singleton (#t:eqtype) (a:t) : set t = [a]
 
+let cset_to_set (#t:eqtype) (s:set t) =
+   GSet.as_set' (set_to_list s)

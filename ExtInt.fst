@@ -1,6 +1,7 @@
 module ExtInt
 
 open FStar.Mul
+open ToString
 
 type extInt = | Infty : bool -> extInt
               | SomeInt : int -> extInt
@@ -62,3 +63,7 @@ let _ = assert (forall (a:int). (SomeInt a) `lt` plusInfty)
 
 let lemma_minmax (a b:extInt) : Lemma (min a b `le` max a b) = ()
 let _ = assert (forall (a b:extInt). min a b `le` max a b)
+
+instance _ : hasToString extInt =  { toString = fun i -> match i with
+    | SomeInt n -> string_of_int n
+    | _ -> if i = plusInfty then "+inf" else "-inf"}
