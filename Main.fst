@@ -474,12 +474,12 @@ let rec static_analysis_instr #a [| hasAbstractOperators a |] [| hasAbstractDoma
                           let r2 = f (analyse_bexp st (!. c)) b2 in
                           em_combine r1 r2 union
   | LInstrWhile cond b1 -> let apply_cond st = analyse_bexp st cond in
-                          let rec lookForFixPoint current_st: Tot (enumerableMap a) =
+                          let rec lookForFixPoint current_st (stop: nat): Tot (enumerableMap a) = if stop=0 then current_st else
                               let new_st  = static_analysis_instr (apply_cond current_st) b1 in
                               let widened = em_combine new_st (apply_cond (em_combine current_st new_st widen)) union in 
                                 if   em_equal aeq current_st widened then widened
-                                else lookForFixPoint (admitP (%[widened] << %[current_st]); widened) in
-                          em_combine st (lookForFixPoint st) union
+                                else lookForFixPoint (admitP (%[widened] << %[current_st]); widened) (stop - 1) in
+                          em_combine (analyse_bexp st (!. cond)) (lookForFixPoint st 4) union
 
 let myProg = (
   (a =. (v 23)) >>
@@ -488,37 +488,12 @@ let myProg = (
 let myState : enumerableMap interval = 
   em_set (
     state_to_em (emptyState ())
-  ) "a" (SomeInterval (SomeInt 2) (SomeInt 9))
-
-let prog2 = (
-  //(a =. (v 23)) >>
-  (while ((!! a) <=. (v 40)) Do (    
-    a =. (!! a) +. (v 5)
-  ) End)
-)
-let prog3 = (a =. (v 28))
-
-let hey  = static_analysis_instr myState prog2
-let hey2 = static_analysis_instr myState prog3
-let hey3 = analyse_bexp myState ((!! a) <=. (v 4))
+  ) "a" (SomeInterval (SomeInt 23) (SomeInt 23))
 
 
-let fib' (max:int) =
-  (a =. (v 1)) >>
-  (b =. (v 1)) >>
-  (i =. (v 0)) >>
-  (while (!! i <=. (v max)) Do (
-    (tmp =. (!! a)) >>
-    (a =. (!! b)) >>
-    (b =. (!! tmp) +. (!! b)) >>
-    (i =. (!! i) +. (v 1))
-  ) End)
-let hey4 = static_analysis_instr myState (fib 3)
+
+
 open FStar.String
-
-//let _ = assert (em_get hey3 "a"  == magic ()) by (compute(); qed ())
-//let _ = assert (em_equal aeq (hey) (hey2)) by (compute (); qed ())
-//let _ = assert (em_get hey4 "i" == magic()) by (compute (); qed ()) 
 
 class hasToString t = {
   toString: t -> string
@@ -535,9 +510,41 @@ instance _ : hasToString interval =  { toString = fun i ->  match i with
 
 instance emHasToString #a [| hasToString a |] : hasToString (enumerableMap a) =  { toString = fun i -> 
   "{" `strcat`
-         join " \n " (List.Tot.Base.map (fun s -> s `strcat` " = " `strcat` toString (em_get i s)) i._em_keys)
+         join ", " (List.Tot.Base.map (fun s -> s `strcat` " = " `strcat` toString (em_get i s)) i._em_keys)
       `strcat` "}"
 }
+
+let fib' (max:int) =
+  (a =. (v 1)) >>
+  (b =. (v 1)) >>
+  (i =. (v 0)) >>
+  (while (!! i <=. (v max)) Do (
+    (tmp =. (!! a)) >>
+    (a =. (!! b)) >>
+    (b =. (!! tmp) +. (!! b)) >>
+    (i =. (!! i) +. (v 1))
+  ) End)
+
+let prog2 = (
+  (a =. (v 0)) >>
+  (b =. (v 0)) >>
+  (while ((!! a) <=. (v 10)) Do (
+    (a =. (!! a) +. (v 1)) >>
+    (b =. (!! b) +. (!! a))
+  ) End)
+)
+let prog3 = (a =. (v 28))
+
+let hey  = static_analysis_instr myState prog2
+let hey2 = static_analysis_instr myState prog3
+let hey3 = analyse_bexp myState ((!! a) <=. (v 4))
+let hey4 = static_analysis_instr myState (fib 0)
+
+
+//let _ = assert (em_get hey3 "a"  == magic ()) by (compute(); qed ())
+//let _ = assert (em_equal aeq (hey) (hey2)) by (compute (); qed ())
+let _ = assert (emHasToString.toString hey == magic()) by (compute (); qed ())
+
 
 
 let main = 

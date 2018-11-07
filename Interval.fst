@@ -2,7 +2,6 @@ module Interval
 
 open ExtInt
 open FStar.List.Tot
-open FStar.Tactics
 module G = FStar.GSet
 
 type interval = | EmptyInterval : interval
@@ -151,3 +150,4 @@ let equal (a b:interval) = match (a, b) with
 //      (al ar bl br : extInt)
 //      (SomeInterval al ar:interval) (SomeInterval bl br:interval{includes a b})
 //      : Lemma (al `ge` )
+
