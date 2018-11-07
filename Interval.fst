@@ -1,3 +1,6 @@
+(*
+@summary: Integer intervals (possibly infinite)
+*)
 module Interval
 
 open ExtInt
@@ -45,14 +48,11 @@ let inter (a b:interval) = match a with
 
 // let _ = assert (y == magic()) by (compute (); qed ()) 
 
-// [1; 3] is included in [0;4]
 let includes (a b:interval) = match a with
   | EmptyInterval -> true
   | SomeInterval l1 r1 -> match b with
     | EmptyInterval -> false
     | SomeInterval l2 r2 -> (l1 `ge` l2) && (r1 `le` r2)
-
-
 
 let gamma (i: interval): GSet.set int = match i with
   | EmptyInterval -> GSet.empty
@@ -93,6 +93,7 @@ let values_to_interval (l: list int) =
 
 let nonEmptyInterval = x:interval{SomeInterval? x}
 
+(* those are just helpers *)
 private
 let h1 (f:nonEmptyInterval -> nonEmptyInterval) (a:interval): interval = match a with
   | EmptyInterval -> EmptyInterval
@@ -170,7 +171,7 @@ instance _ : hasToString interval =  { toString = fun i ->  match i with
 let interval_alpha set = values_to_interval (CSet.set_to_list set)
 
 let rec lemma_intervalAlpha_eq_modulo_order (a:CSet.set int) (b:CSet.set int{CSet.equal a b})
-    : Lemma (interval_alpha a == interval_alpha b) = admit ()
+    : Lemma (interval_alpha a == interval_alpha b) = admit () (*TODO*)
 
 let rec inteval_alpha_behead_both (hd:int)
                   (l1:CSet.set int{CSet.no_dup (hd::l1)})
@@ -179,17 +180,17 @@ let rec inteval_alpha_behead_both (hd:int)
       = match l1 with
       | [] -> (match l2 with
         | [] -> ()
-        | h2::t2 -> admit () 
+        | h2::t2 -> admit ()  (*TODO*)
         )
-      | _ -> admit ()
+      | _ -> admit () (*TODO*)
 
 let rec lemma_intervalAlpha_ind (hd:int) (l1:CSet.set int{CSet.no_dup (hd::l1)})
                   (l2:CSet.set int{CSet.mem hd l2 /\ interval_alpha l1 `po` interval_alpha (CSet.remove l2 hd)})
     : Lemma (interval_alpha (hd::l1) `po` interval_alpha l2) = 
             assert (CSet.no_dup (CSet.remove l2 hd));
               
-            admitP (CSet.no_dup (hd::(CSet.remove l2 hd)));
-            admitP (CSet.equal l2 (hd::(CSet.remove l2 hd)));
+            admitP (CSet.no_dup (hd::(CSet.remove l2 hd))); (*TODO*)
+            admitP (CSet.equal l2 (hd::(CSet.remove l2 hd))); (*TODO*)
             assert (CSet.mem hd l2);
             lemma_intervalAlpha_eq_modulo_order l2 (hd::(CSet.remove l2 hd));
             inteval_alpha_behead_both hd l1 (CSet.remove l2 hd)
@@ -209,8 +210,8 @@ let _ = assert (isMonotonic gamma)
 
 instance _ : hasGaloisConnection int interval = mkGaloisConnection
                                  gamma
-                                 (admitP (isMonotonic interval_alpha); interval_alpha)
-                                 (magic ())
+                                 (admitP (isMonotonic interval_alpha); interval_alpha) (*TODO*)
+                                 (magic ()) 
 
 let rec interval_widen (i j:interval) = match (i, j) with
   | (SomeInterval a b, SomeInterval c d) -> SomeInterval (if ExtInt.le a c then a else ExtInt.minusInfty)

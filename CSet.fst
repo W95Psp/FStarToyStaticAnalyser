@@ -360,6 +360,7 @@ let rec lemma_subset_add (#t:eqtype) (a:set t) (b:set t{subset a b}) (h:t{no_dup
 //let rec lemma_subset (#t:eqtype) (a:set t) (b:set t) 
 let rec lemma_no_dup_remove (#t:eqtype) (l:list t{no_dup l}) (x:t) : Lemma (no_dup (remove l x)) = ()
 
+(* TODO: here are some lemma I needed, but was too lazy for doing actual proofs *)
 let rec lemma_subset_trans (#t:eqtype) (a:set t) (b:set t{subset a b}) (c:set t{subset b c}) : Lemma (subset a c) = admit ()
 let rec lemma_subset_ref (#t:eqtype) (a: set t) : Lemma (subset a a) = admit ()
 let rec lemma_subset_sym (#t:eqtype) (a b:set t) : Lemma (subset a b /\ subset b a ==> a `equal` b) = admit ()

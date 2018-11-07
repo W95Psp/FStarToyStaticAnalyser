@@ -1,3 +1,6 @@
+(*
+@summary: Specify what is an abstract domain and what should be abstract operators. Also derive generic backward operators.
+*)
 module AbstractDomain
 
 open DefaultValue
@@ -42,6 +45,8 @@ let mkAbstractOperators #a [| hasAbstractDomain a |] [| hasDefaultValue a |]
   ; a_op_times       = a_op_times
   }
 
+
+(* TODO/idea: Use meta-F* to generate those function *)
 let backward_aop_le0         #a [| hasAbstractOperators a |] [| hasAbstractDomain a |] (x r  :a) (lessThanZero:a)
     = x `inter` lessThanZero
 let backward_aop_unary_minus #a [| hasAbstractOperators a |] [| hasAbstractDomain a |] (x r  :a)

@@ -1,14 +1,17 @@
+(*
+@summary: integer extended with infinities
+*)
 module ExtInt
 
 open FStar.Mul
 open ToString
 
+(* an extended int is either an int, either some infinite *)
 type extInt = | Infty : bool -> extInt
               | SomeInt : int -> extInt
 let plusInfty = Infty true
 let minusInfty = Infty false
 let zero = SomeInt 0
-
 
 let eq (a:extInt) (b:extInt) = match a with
   | Infty a_sign -> (match b with

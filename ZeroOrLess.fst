@@ -1,3 +1,6 @@
+(*
+@summary: allow expressing generically "<= 0" for an abstract domain
+*)
 module ZeroOrLess
 
 open FStar.Tactics.Typeclasses

@@ -6,25 +6,6 @@ open DefaultValue
 open FStar.Mul
 open FStar.Tactics.Typeclasses
 
-let a = "a"
-let b = "b"
-let c = "c"
-let d = "d"
-let i = "i"
-let tmp = "tmp"
-
-let fib (max:int) =
-  (a =. (v 1)) >>
-  (b =. (v 1)) >>
-  (i =. (v 0)) >>
-  (while (!! i <=. (LAExpLitt max)) Do (
-    (tmp =. (!! a)) >>
-    (a =. (!! b)) >>
-    (b =. (!! tmp) +. (!! b)) >>
-    (i =. (!! i) +. (v 1))
-  ) End)
-
-
 type state (a:Type) = string -> a
 
 let emptyState #a [| hasDefaultValue a |] () : state a =
@@ -52,6 +33,7 @@ let rec norm_lBExp state exp =
   | LBExpOr a b -> fB a b ( || )
   | LBExpNot a -> norm_lBExp state a
 
+(* For conveniance *)
 class run_c a b = {
   run : state int -> a -> b
 }
@@ -69,6 +51,24 @@ let rec norm_lInstr state instr n = if n = 0 then state else
   | LInstrWhile cond b  -> if run state cond then
 				f state (b >> (while cond Do b End)) (n - 1)
 			  else  state
+
+let a = "a"
+let b = "b"
+let c = "c"
+let d = "d"
+let i = "i"
+let tmp = "tmp"
+
+let fib (max:int) =
+  (a =. (v 1)) >>
+  (b =. (v 1)) >>
+  (i =. (v 0)) >>
+  (while (!! i <=. (LAExpLitt max)) Do (
+    (tmp =. (!! a)) >>
+    (a =. (!! b)) >>
+    (b =. (!! tmp) +. (!! b)) >>
+    (i =. (!! i) +. (v 1))
+  ) End)
 
 instance _ : run_c lInstr (state int) = { run = fun s a -> norm_lInstr s a 100 }
 

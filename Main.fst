@@ -23,20 +23,60 @@ open StaticAnalyser
 
 module OS = FStar.OrdSet
 
-let sad = let v = v 3 in (v <=. v) &&. (!. (v ==. v))
-//let _ = assert ((bexp_count_not sad, sad) == magic ()) by (compute (); qed ())
+(*
+  Here are some testṡ.
+  Variables `a`, `b`, `c`, `d`, `i`, `tmp` are strings and are declared in ToyLanguageInterpreter module
 
-let myProg = (
-  (a =. (v 23)) >>
-  (a =. (!! a) +. (!! b))
-  )
-let myState : enumerableMap interval = 
+  NOTICE: I use `let _ = assert (something == magic()) by (compute (); qed ())` to ask F* to normalize as much as it can a term.
+          `magic ()` fit any type.
+          Therfore this assertion always fail, but F* opens a `goals` buffer where we can observe the normalized term.
+          One can also use `C-C C-S C-E` command in emacs, but it looks like it has some kind of timeout.
+*)
+
+let state0 : enumerableMap interval = 
   em_set (
     state_to_em (emptyState ())
-  ) "a" (SomeInterval (SomeInt 23) (SomeInt 23))
+  ) "a" (mkInterval 12 23)
+  
+(* helper function that run a static analysis using defined state0 *)
+let guessInvariants prog = emHasToString.toString (static_analysis_instr state0 prog)
+
+(* simple program summing two numbers *)
+let prog0 = (
+  (a =. (v 23)) >>
+  (b =. (v 12)) >>
+  (a =. (!! a) +. (!! b))
+  )
+
+// let _ = assert (guessInvariants prog0 == "") by (compute (); qed ())
+// -> gives "{b = [12 ; 12], a = [35 ; 35]}"
+
+(* simple program with a while *)
+let prog1 = (
+  (a =. (v 0)) >>
+  (b =. (v 0)) >>
+  (while ((!! a) <=. (v 10)) Do (
+    (a =. (!! a) +. (v 1)) >>
+    (b =. (!! b) +. (!! a))
+  ) End)
+)
+
+// let _ = assert (guessInvariants prog1 == "") by (compute (); qed ())
+// -> gives "{b = [0 ; +inf], a = [0 ; 11]}" (after a while, like 3 minutes!)
+
+(* simple program incremening a value till a upper bound with a while *)
+let prog2 = (
+  (while ((!! a) <=. (v 40)) Do (
+    (a =. (!! a) +. (v 5))
+  ) End)
+)
+
+// let _ = assert (guessInvariants prog2 == "") by (compute (); qed ())
+// -> gives "{a = [12 ; 45]}"
 
 
-let fib' (max:int) =
+(* max-th number of fibonnacci *)
+let prog3 (max:int) =
   (a =. (v 1)) >>
   (b =. (v 1)) >>
   (i =. (v 0)) >>
@@ -47,41 +87,12 @@ let fib' (max:int) =
     (i =. (!! i) +. (v 1))
   ) End)
 
-let prog2 = (
-  (a =. (v 0)) >>
-  (b =. (v 0)) >>
-  (while ((!! a) <=. (v 10)) Do (
-    (a =. (!! a) +. (v 1)) >>
-    (b =. (!! b) +. (!! a))
-  ) End)
-)
-let prog3 = (a =. (v 28))
+// let _ = assert (guessInvariants prog3) by (compute (); qed ())
+// take too long (I need to export to ML to actually compute it)
 
-let hey  = static_analysis_instr myState prog2
-let hey2 = static_analysis_instr myState prog3
-let hey3 = analyse_bexp myState ((!! a) <=. (v 4))
-let hey4 = static_analysis_instr myState (fib 0)
-
-
-//let _ = assert (em_get hey3 "a"  == magic ()) by (compute(); qed ())
-//let _ = assert (em_equal aeq (hey) (hey2)) by (compute (); qed ())
-//let _ = assert (emHasToString.toString hey == magic()) by (compute (); qed ())
-
-
-
+(*
+  **This is intended for ML extraction, but the extraction doesn't work for me**
+*)
 let main = 
-  let i = FStar.IO.input_int () in
-  FStar.IO.print_string (emHasToString.toString hey4)
-
-
-(* 
-let test0 = static_analysis_aexp (listToState [
-  ("hey", SomeInterval (SomeInt 2) (SomeInt 4))
-]) (v 10 *. !! "hey") *)
- 
-//let _ = assert (test0 == magic ()) by (compute ();qed ())
-
-//let verif_test0 = assert (test0 == SomeInterval (SomeInt 4) (SomeInt 4))
-
-//let hey =  static_analysis_aexp (emptyState ()) 
-//hey
+  //let i = FStar.IO.input_int () in
+  FStar.IO.print_string (guessInvariants (prog3 2))
