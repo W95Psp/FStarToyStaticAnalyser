@@ -2,6 +2,7 @@ module Interval
 
 open ExtInt
 open FStar.List.Tot
+open FStar.Tactics
 module G = FStar.GSet
 
 type interval = | EmptyInterval : interval
@@ -25,10 +26,15 @@ let inter (a b:interval) = match a with
         (match b with
 	| SomeInterval l2 r2 -> let l3 = max l1 l2 in
 	 		       let r3 = min r1 r2 in
-				   if l3 `ge` r3 then EmptyInterval
+				   if l3 `gt` r3 then EmptyInterval
 						 else SomeInterval l3 r3
 	| _ -> b) // empty
   | _ -> a // if empty
+
+// let x = (SomeInterval (SomeInt 23) (SomeInt 23))
+// let y = inter x (SomeInterval minusInfty plusInfty)
+
+// let _ = assert (y == magic()) by (compute (); qed ()) 
 
 // [1; 3] is included in [0;4]
 let includes (a b:interval) = match a with
