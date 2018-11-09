@@ -52,7 +52,7 @@ let backward_aop_le0         #a [| hasAbstractOperators a |] [| hasAbstractDomai
 let backward_aop_unary_minus #a [| hasAbstractOperators a |] [| hasAbstractDomain a |] (x r  :a)
     = x `inter` (a_op_unary_minus r)
 let backward_aop_plus        #a [| hasAbstractOperators a |] [| hasAbstractDomain a |] (x y r:a)
-    = (x `inter` (r `a_op_minus` y), y `inter` (r `a_op_minus` r)) 
+    = (x `inter` (r `a_op_minus` y), y `inter` (r `a_op_minus` x)) 
 let backward_aop_minus       #a [| hasAbstractOperators a |] [| hasAbstractDomain a |] (x y r:a)
     = (x `inter` (r `a_op_plus` y), y `inter` (x `a_op_minus` r)) 
 // let backward_aop_mul #a [| hasAbstractOperators a |] [| hasAbstractDomain a |] (x y r:a)
