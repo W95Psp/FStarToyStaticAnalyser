@@ -27,8 +27,8 @@ let union (a b:interval) = match a with
   | EmptyInterval -> b
   | SomeInterval l1 r1 -> match b with
 		 | EmptyInterval -> a
-		 | SomeInterval l2 r2 -> 
-                                assert (l1 `le` r1);
+		 | SomeInterval l2 r2 ->
+                                 assert (l1 `le` r1);
                                 assert (l2 `le` r2);
                                 assert (min l1 l2 `le` max r1 r2);
                                 SomeInterval (min l1 l2) (max r1 r2) 
@@ -165,7 +165,7 @@ instance _ : hasPartialOrder interval = { po = includes }
 //      : Lemma (al `ge` )
 
 instance _ : hasToString interval =  { toString = fun i ->  match i with
-  | EmptyInterval -> "[]"
+  | EmptyInterval -> "┴"
   | SomeInterval l (r:extInt) -> join "" ["[";toString l;" ; ";toString r;"]"]}
 
 let interval_alpha set = values_to_interval (CSet.set_to_list set)

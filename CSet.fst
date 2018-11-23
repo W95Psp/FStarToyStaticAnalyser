@@ -95,10 +95,10 @@ let rec lemma_union'_no_dup (#t:eqtype) (s:list t{no_dup s}) : Lemma (union' s [
 
 let rec lemma_triv unit : Lemma (true == true <: Prims.Tot Type0) = ()
 
-let rename_get_last name = let l = binders_of_env (cur_env ()) <: list binder in
-                           admitP (Cons? l);
-                           let b = List.Tot.Base.last l in
-                           rename_to b name; b
+//let rename_get_last name = let l = binders_of_env (cur_env ()) <: list binder in
+//                           admitP (Cons? l);
+//                           let b = List.Tot.Base.last l in
+//                           rename_to b name; b
 // match l with
 //                          | [] -> fail "Could not find any binders in current env!"
 //                          | _  ->  rename_to b name 

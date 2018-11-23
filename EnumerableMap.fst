@@ -43,16 +43,17 @@ let em_equal #a (myEq:a->a->bool) (m1 m2:enumerableMap a) =
 
 (* we derive an instance of ToString to pretty print our maps *)
 instance emHasToString #a [| hasToString a |] : hasToString (enumerableMap a) =  { toString = fun i -> 
-  "{" `strcat`
-         join ", " (List.Tot.Base.map (fun s -> s `strcat` " = " `strcat` toString (em_get i s)) i._em_keys)
-      `strcat` "}"
+  "{ " `strcat`
+         join "\n, " (List.Tot.Base.map (fun s -> s `strcat` " ↦ " `strcat` toString (em_get i s)) i._em_keys)
+      `strcat` "\n}"
 }
 
+
 let rec listToEnumerableSet (#a:Type) [| hasDefaultValue a |] (lst:list (tuple2 string a))
-  = let rec resolver l (query: string) = (match lst with
+  = let rec resolver (l:list (tuple2 string a)) (query: string): Tot a (decreases (length l)) = (match l with
                   | [] -> def
                   | (name, value)::tl -> if name = query then value else resolver tl query
   ) in {
   _em_data = resolver lst;
-  _em_keys = map (fun (k, _) -> k) lst
+  _em_keys = CSet.list_to_set (map (fun (k, _) -> k) lst)
   }

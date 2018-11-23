@@ -69,4 +69,4 @@ let _ = assert (forall (a b:extInt). min a b `le` max a b)
 
 instance _ : hasToString extInt =  { toString = fun i -> match i with
     | SomeInt n -> string_of_int n
-    | _ -> if i = plusInfty then "+inf" else "-inf"}
+    | _ -> if i = plusInfty then "∞" else "-∞"}

@@ -18,10 +18,11 @@ open ToString
 open EnumerableMap
 open AbstractDomain
 open ZeroOrLess
-
 open StaticAnalyser
 
 module OS = FStar.OrdSet
+
+open MyIO
 
 (*
   Here are some testṡ.
@@ -90,9 +91,62 @@ let prog3 (max:int) =
 // let _ = assert (guessInvariants prog3) by (compute (); qed ())
 // take too long (I need to export to ML to actually compute it)
 
-(*
-  **This is intended for ML extraction, but the extraction doesn't work for me**
-*)
-let main = 
-  //let i = FStar.IO.input_int () in
-  FStar.IO.print_string (guessInvariants (prog3 2))
+open FStar.String
+open FStar.Char
+module U32 = FStar.UInt32
+
+//let x = u32_of_char 'a'
+open ToyParser
+
+let getStr progStr i = match parse_toy_language progStr with
+                       | Just prog -> guessInvariants prog
+                       | Nothing   -> "Error parsing input"
+
+//let getdir unit = mi_readdir "../prog-
+
+open FStar.All
+
+let mi_get_file_contents (path: string): ML string =
+  let r = mi_open_read_file path in
+  let rec h unit: ML string = match (try Some (mi_read_line r) with | _ -> None) with // we parse *one* line
+          | Some l  -> let next = h () in
+                      l `strcat` "\n" `strcat` next
+          | None -> ""    
+  in
+  let contents = h () in
+  mi_close_read_file r; contents
+
+let rec _last (l: list string) = match l with
+  | [] -> ""
+  | [x] -> x
+  | hd::tl -> _last tl
+
+let get_ext name = let chunks = split ['.'] name in
+                   if FStar.List.Tot.Base.length chunks > 1 then _last chunks
+                                                            else ""
+let filter_ext ext name = get_ext name = ext
+
+
+let main_h (unit: unit) =
+  let basedir = "../prog-example/" in
+  let app = strcat basedir in
+  let l = mi_readdir basedir in
+  mi_print_string (anyListHasToString.toString l);
+  let l = List.filter (fun p -> mi_file_exists (app p)) l in
+  let l = List.filter (fun p -> get_ext p = "c") l in
+  mi_print_string (anyListHasToString.toString (FStar.List.Tot.Base.map get_ext l));
+  List.map (fun x -> let w = mi_open_write_file (app x `strcat` ".result") in
+                  let w2 = mi_open_write_file (app x `strcat` ".pp") in
+                  let content = mi_get_file_contents (app x) in
+                  let (pp, invariants) = (match parse_toy_language content with
+                       | Just prog -> (toString prog, toString (guessInvariants prog))
+                       | Nothing   -> let m = "Error parsing input" in (m,m)
+                       ) in
+                  mi_write_string w (invariants);
+                  mi_write_string w2 (pp);
+                  mi_close_write_file w;
+                  mi_close_write_file w2
+    ) l
+
+let main = main_h ()
+

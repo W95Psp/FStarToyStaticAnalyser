@@ -1,4 +1,4 @@
-module Misc
+module MiscStuff
 // type interval = i:interval'{match i with
 //   | EmptyInterval -> True
 //   | SomeInterval a b -> a `lt` b}

@@ -66,7 +66,7 @@ let rec analyse_bexp #a [| hasAbstractOperators a |] [| hasAbstractDomain a |] [
                           | LBExpNot e1    -> e1
                           | LBExpAnd e1 e2 -> LBExpOr  (apply_not e1) (apply_not e2)
                           | LBExpOr  e1 e2 -> LBExpAnd (apply_not e1) (apply_not e2)
-                          | LBExpLe  e1 e2 -> (e2 <=. e1) &&. (!. (e1 ==. e2))
+                          | LBExpLe  e1 e2 -> ((e2 +. (v 1)) <=. e1) // for now we discard this &&. (!. (e1 ==. e2))
                           | LBExpEq  e1 e2 -> LBExpNot e
                           | LBExpLitt   _  -> e
                           ) in 
@@ -79,8 +79,12 @@ let rec analyse_bexp #a [| hasAbstractOperators a |] [| hasAbstractDomain a |] [
   | LBExpEq   a b -> backward_analysis_aexp st (a -. b) (alpha' 0)//lessThanZero
   | LBExpLe   a b -> backward_analysis_aexp st (a -. b) zeroOrLess
 
+
+open MyIO
+open ToString
+
 (* This functions perform static analysis on instructions, i.e. on full programs *)
-let rec static_analysis_instr #a [| hasAbstractOperators a |] [| hasAbstractDomain a |] [| hasGaloisConnection int a |] [| hasZeroOrLess a |]
+let rec static_analysis_instr #a [| hasToString a |] [| hasAbstractOperators a |] [| hasAbstractDomain a |] [| hasGaloisConnection int a |] [| hasZeroOrLess a |]
                     (st:enumerableMap a)
                     (instr:lInstr)
                     : Tot (enumerableMap a) (decreases instr)
@@ -91,11 +95,16 @@ let rec static_analysis_instr #a [| hasAbstractOperators a |] [| hasAbstractDoma
   | LInstrSeq b1 b2     -> static_analysis_instr (f st b1) b2 
   | LInstrIf c b1 b2    -> let r1 = f (analyse_bexp st     c ) b1 in
                           let r2 = f (analyse_bexp st (!. c)) b2 in
+                          let _ = mi_debug_print_string ("\n Previous state is\n" ^ emHasToString.toString st) in
+                          let _ = mi_debug_print_string ("\n Cond '" ^ toString c ^ "' gives: \n" ^ emHasToString.toString (analyse_bexp st c)) in
+                          let _ = mi_debug_print_string ("\n Cond '" ^ toString (!. c) ^ "' gives: \n" ^ emHasToString.toString (analyse_bexp st (!. c))) in
                           em_combine r1 r2 union
   | LInstrWhile cond b1 -> let apply_cond st = analyse_bexp st cond in 
                           (* apply_cond takes a state: at each iterations, inveriants 
                              might change, so we need to recompute the condition *)
                           (* TODO: remove that stop parameter *)
+                          
+
                           let rec lookForFixPoint current_st (stop: nat): Tot (enumerableMap a) = if stop=0 then current_st else
                               let new_st  = static_analysis_instr (apply_cond current_st) b1 in (* compute while's body once *)
                               let widened = em_combine new_st (apply_cond (em_combine current_st new_st widen)) union in (* widen the new state *)
@@ -103,3 +112,5 @@ let rec static_analysis_instr #a [| hasAbstractOperators a |] [| hasAbstractDoma
                                 else lookForFixPoint (admitP (%[widened] << %[current_st]); widened) (stop - 1) in (* TODO: prove some lemma saying widening is ensures termination *)
                           (* we combine the fixpoint state with the old state constrained with the negated condition *)
                           em_combine (analyse_bexp st (!. cond)) (lookForFixPoint st 4) union
+
+

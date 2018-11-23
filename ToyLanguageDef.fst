@@ -1,5 +1,7 @@
 module ToyLanguageDef
 open FStar.Tactics.Typeclasses
+open ToString
+module L = FStar.List.Tot.Base
 
 type lAExp =
   | LAExpLitt : int -> lAExp
@@ -7,6 +9,7 @@ type lAExp =
   | LAExpPlus : lAExp -> lAExp -> lAExp 
   | LAExpMinus: lAExp -> lAExp -> lAExp 
   | LAExpMult : lAExp -> lAExp -> lAExp
+
 
 let ( +. ) = LAExpPlus
 let ( -. ) = LAExpMinus
@@ -60,3 +63,31 @@ let rec bexp_count_not (e:lBExp): nat = match e with
   | LBExpAnd x y -> bexp_count_not x + bexp_count_not y
   | LBExpOr x y -> bexp_count_not x + bexp_count_not y
   | _ -> 0
+
+
+private
+let rec ntabs (n:nat): string = if n=0 then "" else strcat "    " (ntabs (n-1))
+private
+let apptabs (n:nat): string -> string = strcat (ntabs n)
+let rec lAExpToString exp = match exp with 
+         | LAExpLitt z -> toString z
+         | LAExpVar s -> s
+         | LAExpPlus  a b -> join " + " (L.map lAExpToString [a;b])
+         | LAExpMinus a b -> join " - " (L.map lAExpToString [a;b])
+         | LAExpMult  a b -> join " * " (L.map lAExpToString [a;b])
+instance lAExpHasToString : hasToString lAExp = { toString = lAExpToString }
+let rec lBExpToString exp = match exp with
+  | LBExpLitt b -> toString b
+  | LBExpNot e -> strcat "~" (lBExpToString e)
+  | LBExpAnd a b -> join " && " (L.map lBExpToString [a;b])
+  | LBExpOr  a b -> join " || " (L.map lBExpToString [a;b])
+  | LBExpEq  a b -> join " == " (L.map toString [a;b])
+  | LBExpLe  a b -> join " <= " (L.map toString [a;b])
+instance lBExpHasToString : hasToString lBExp = { toString = lBExpToString }
+let rec lInstrToString (n:nat) exp: Tot string (decreases exp) = match exp with
+  | LInstrAssign name v -> apptabs n (join " = " [name; toString v])
+  | LInstrSkip -> apptabs n "SKIP"
+  | LInstrSeq a b -> join "; \n" [lInstrToString n a; lInstrToString n b]
+  | LInstrIf c a b -> join "" [apptabs n "if ("; toString c; ") {\n"; lInstrToString (n+1) a; "\n" `strcat` apptabs n "} else {\n"; lInstrToString (n+1) b; "\n" `strcat` apptabs n "}"]
+  | LInstrWhile c a -> join "" [apptabs n "while ("; toString c; ") {\n"; lInstrToString (n+1) a; "\n" `strcat` apptabs n "}" ]
+instance lInstrHasToString : hasToString lInstr = { toString = lInstrToString 0 }

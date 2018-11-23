@@ -1,0 +1,19 @@
+include $(FSTAR_HOME)/examples/Makefile.include
+include .depend
+
+%.fst.checked:
+	$(FSTAR) $< --cache_checked_modules
+
+%.fsti.checked:
+	$(FSTAR) $< --cache_checked_modules
+
+%.ml:
+	$(FSTAR) $(notdir $(subst .checked,,$<)) --codegen OCaml --extract_module $(basename $(notdir $(subst .checked,,$<))) --cmi
+
+.depend:
+	$(FSTAR) --dep full $(ROOTS) B.fst $(addprefix --extract ,$(ROOTS)) --cmi > .depend
+
+depend: .depend
+
+clean:
+	rm -f .depend *.ml *.checked *~

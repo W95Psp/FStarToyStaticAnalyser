@@ -12,7 +12,7 @@ class hasGaloisConnection (c:eqtype) a = {
    ; gamma : (f:(a -> set c){ isMonotonic f })
    ; alpha : (f:(CSet.set c -> a){ isMonotonic f })
    ; galois_wf : (sa:a) -> (sc:CSet.set c) ->
-		 Lemma (CSet.cset_to_set sc `l_po` (gamma sa) /\ sa `l_po` (alpha sc))
+		 Lemma (CSet.cset_to_set sc `l_po` (gamma sa) <==> sa `l_po` (alpha sc)) // TODO <=>
    ; alpha': c -> a
 }
 

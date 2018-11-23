@@ -15,5 +15,22 @@ let join sep l = fold_right
 					(fun (a, i) b -> (if i then sep else "") `strcat` (a `strcat` b))
 					(mapi (fun i x -> (x, i > 0)) l)
 					""
+
+
+instance tupleHasToString #t1 #t2 [| hasToString t1 |] [| hasToString t2 |] = {
+	toString = fun (a,b) -> join "" ["("; toString a; ", "; toString b; ")"]
+}
+private
+let nat_to_int (i:nat): int = i
+
+
+instance stringHasToString : hasToString string = {toString = fun x -> x}
+instance charHasToString   : hasToString char = {toString = fun ch -> String.make 1 ch}
+instance natHasToString    : hasToString nat = {toString = fun ch -> string_of_int (nat_to_int ch)}
+instance intHasToString    : hasToString int = {toString = string_of_int}
+instance boolHasToString   : hasToString bool = {toString = fun v -> if v then "true" else "false"}
+
+instance anyListHasToString #a [| hasToString a |] : hasToString (list a) = {toString = fun x -> "[" ^ join ", " (map toString x) ^ "]"}
+
 private
 let example = join "," ["A";"B";"C";"D"]
