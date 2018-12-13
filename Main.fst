@@ -7,7 +7,7 @@ open Interval
 open FStar.Tactics
 open FStar.Tactics.Typeclasses
 open ExtInt
-open FStar.Mul
+module Mul = FStar.Mul
 
 open PartialOrder
 open GaloisConnection
@@ -19,6 +19,11 @@ open EnumerableMap
 open AbstractDomain
 open ZeroOrLess
 open StaticAnalyser
+open Congruence
+open Interval
+open CartProdAbs
+
+module Parser = ToyParser
 
 module OS = FStar.OrdSet
 
@@ -34,13 +39,34 @@ open MyIO
           One can also use `C-C C-S C-E` command in emacs, but it looks like it has some kind of timeout.
 *)
 
-let state0 : enumerableMap interval = 
-  em_set (
+type dom = interval * congruence 
+
+let domDV: hasDefaultValue dom = tupAbsDomHasDefaultValue
+
+let state0 : enumerableMap dom = state_to_em (emptyState #dom #domDV ())
+
+(*let state0 : enumerableMap interval = 
+  //em_set (
     state_to_em (emptyState ())
-  ) "a" (mkInterval 12 23)
-  
+  //) "a" (mkInterval 12 23)
+  *)
 (* helper function that run a static analysis using defined state0 *)
-let guessInvariants prog = emHasToString.toString (static_analysis_instr state0 prog)
+let domAD = tupAbsDomHasAbstractDomain #interval #congruence
+let domAO = tupAbsDomHasAbstractOperators #interval #congruence #domDV #solve #solve #domAD
+let domGC = tupAbsDomHasGaloisConnection #int #interval #congruence 
+
+let domToStr = emHasToString #dom #tupAbsDomHasToString
+
+let static_analysis_instr' = static_analysis_instr
+    #dom
+    #tupAbsDomHasToString
+    #domAO
+    #domAD
+    #domGC
+    #(tupAbsDomHasZeroOrLess #interval #congruence)
+    
+
+let guessInvariants prog = domToStr.toString  (static_analysis_instr' state0 prog)
 
 (* simple program summing two numbers *)
 let prog0 = (
@@ -99,7 +125,7 @@ module U32 = FStar.UInt32
 open ToyParser
 
 let getStr progStr i = match parse_toy_language progStr with
-                       | Just prog -> guessInvariants prog
+                       | Just (FullProg _ prog) -> guessInvariants prog
                        | Nothing   -> "Error parsing input"
 
 //let getdir unit = mi_readdir "../prog-
@@ -135,17 +161,21 @@ let main_h (unit: unit) =
   let l = List.filter (fun p -> mi_file_exists (app p)) l in
   let l = List.filter (fun p -> get_ext p = "c") l in
   mi_print_string (anyListHasToString.toString (FStar.List.Tot.Base.map get_ext l));
-  List.map (fun x -> let w = mi_open_write_file (app x `strcat` ".result") in
-                  let w2 = mi_open_write_file (app x `strcat` ".pp") in
+  List.map (fun x -> let _ = mi_debug_print_string ("\n# Process file " ^ x) in
                   let content = mi_get_file_contents (app x) in
-                  let (pp, invariants) = (match parse_toy_language content with
-                       | Just prog -> (toString prog, toString (guessInvariants prog))
-                       | Nothing   -> let m = "Error parsing input" in (m,m)
+                  let (ast, pp, invariants) = (match parse_toy_language content with
+                       | Just (FullProg _ prog) -> (print_AST_lInstr prog, toString prog, toString (guessInvariants prog))
+                       | Nothing   -> let m = "Error parsing input" in (m,m,m)
                        ) in
-                  mi_write_string w (invariants);
-                  mi_write_string w2 (pp);
-                  mi_close_write_file w;
-                  mi_close_write_file w2
+                  let file_result = mi_open_write_file (app x `strcat` ".result") in
+                  mi_write_string file_result invariants;
+                  mi_close_write_file file_result;
+                  let file_pp     = mi_open_write_file (app x `strcat` ".pp") in
+                  mi_write_string file_pp     pp;
+                  mi_close_write_file file_pp;
+                  let file_ast    = mi_open_write_file (app x `strcat` ".ast") in
+                  mi_write_string file_ast    ast;
+                  mi_close_write_file file_ast
     ) l
 
 let main = main_h ()

@@ -1,0 +1,93 @@
+LInstrSeq (
+    LInstrAssign (current ,
+        1
+    ), 
+    LInstrSeq (
+        LInstrAssign (previous ,
+            1
+        ), 
+        LInstrSeq (
+            LInstrAssign (i ,
+                0
+            ), 
+            LInstrSeq (
+                LInstrAssign (hey ,
+                    2
+                ), 
+                LInstrSeq (
+                    LInstrWhile (
+                        LBExpLe (
+                            "i", 
+                            6
+                        ), 
+                        LInstrSeq (
+                            LInstrAssign (i ,
+                                LAExpPlus (
+                                    "i", 
+                                    1
+                                )
+                            ), 
+                            LInstrSeq (
+                                LInstrAssign (hey ,
+                                    LAExpPlus (
+                                        "hey", 
+                                        18
+                                    )
+                                ), 
+                                LInstrSeq (
+                                    LInstrAssign (tmp ,
+                                        "previous"
+                                    ), 
+                                    LInstrSeq (
+                                        LInstrAssign (previous ,
+                                            "current"
+                                        ), 
+                                        LInstrAssign (current ,
+                                            LAExpPlus (
+                                                "current", 
+                                                "tmp"
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    ), 
+                    LInstrSeq (
+                        LInstrWhile (
+                            LBExpLe (
+                                "i", 
+                                16
+                            ), 
+                            LInstrSeq (
+                                LInstrAssign (i ,
+                                    LAExpPlus (
+                                        "i", 
+                                        1
+                                    )
+                                ), 
+                                LInstrAssign (hey ,
+                                    LAExpPlus (
+                                        "hey", 
+                                        24
+                                    )
+                                )
+                            )
+                        ), 
+                        LInstrSeq (
+                            LInstrAssign (x ,
+                                100
+                            ), 
+                            LInstrAssign (x ,
+                                LAExpDiv (
+                                    "x", 
+                                    7
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+)

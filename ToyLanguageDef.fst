@@ -1,19 +1,24 @@
 module ToyLanguageDef
 open FStar.Tactics.Typeclasses
 open ToString
+
+open EnumerableMap
+
 module L = FStar.List.Tot.Base
 
 type lAExp =
   | LAExpLitt : int -> lAExp
   | LAExpVar  : string -> lAExp
-  | LAExpPlus : lAExp -> lAExp -> lAExp 
-  | LAExpMinus: lAExp -> lAExp -> lAExp 
-  | LAExpMult : lAExp -> lAExp -> lAExp
-
+  | LAExpPlus : lAExp  -> lAExp -> lAExp 
+  | LAExpMinus: lAExp  -> lAExp -> lAExp 
+  | LAExpMult : lAExp  -> lAExp -> lAExp
+  | LAExpDiv  : lAExp  -> lAExp -> lAExp
+  | LAExpCall : string -> list lAExp -> lAExp 
 
 let ( +. ) = LAExpPlus
 let ( -. ) = LAExpMinus
 let ( *. ) = LAExpMult
+let ( /. ) = LAExpDiv
 
 type lBExp =
   | LBExpLitt: bool -> lBExp
@@ -36,12 +41,24 @@ instance _ : litteral_lift bool lBExp = { v = LBExpLitt }
 
 let ( !! ) = LAExpVar
 
+
 type lInstr =
   | LInstrAssign : string -> lAExp -> lInstr
   | LInstrSkip   : lInstr
   | LInstrSeq    : lInstr -> lInstr -> lInstr
   | LInstrIf     : lBExp -> lInstr -> lInstr -> lInstr
   | LInstrWhile  : lBExp -> lInstr -> lInstr
+  
+type funDef = | FunDef : string -> list string -> lInstr -> funDef
+
+type fullProg = | FullProg : (list funDef) -> lInstr -> fullProg
+
+// let rec getFunDefs prog = match prog with
+//   | LInstrSeq    a b -> getFunDefs a @ getFunDefs b
+//   | LInstrIf   _ a b -> getFunDefs a @ getFunDefs b
+//   | LInstrWhile  _ a -> getFunDefs a
+//   | LInstrFun    a b -> getFunDefs a @ getFunDefs b
+//   | _ -> []
 
 let ( =. ) = LInstrAssign
 let Skip = LInstrSkip
@@ -54,6 +71,7 @@ type doTag   = | Do
 
 let iF (cond:lBExp) (_:thenTag) (b1:lInstr) (_:elseTag) (b2:lInstr) (_:endTag) : lInstr = LInstrIf cond b1 b2
 
+
 val while : lBExp -> doTag -> lInstr -> endTag -> lInstr
 let while cond _ body _ = LInstrWhile cond body
 
@@ -63,7 +81,6 @@ let rec bexp_count_not (e:lBExp): nat = match e with
   | LBExpAnd x y -> bexp_count_not x + bexp_count_not y
   | LBExpOr x y -> bexp_count_not x + bexp_count_not y
   | _ -> 0
-
 
 private
 let rec ntabs (n:nat): string = if n=0 then "" else strcat "    " (ntabs (n-1))
@@ -75,10 +92,13 @@ let rec lAExpToString exp = match exp with
          | LAExpPlus  a b -> join " + " (L.map lAExpToString [a;b])
          | LAExpMinus a b -> join " - " (L.map lAExpToString [a;b])
          | LAExpMult  a b -> join " * " (L.map lAExpToString [a;b])
+         | LAExpDiv  a b  -> join " / " (L.map lAExpToString [a;b])
+         | LAExpCall name args -> name ^ "(" ^ (join ", " (L.map (admit (); lAExpToString) args)) ^ ")"
+         
 instance lAExpHasToString : hasToString lAExp = { toString = lAExpToString }
 let rec lBExpToString exp = match exp with
-  | LBExpLitt b -> toString b
-  | LBExpNot e -> strcat "~" (lBExpToString e)
+  | LBExpLitt b  -> toString b
+  | LBExpNot e   -> strcat "~" (lBExpToString e)
   | LBExpAnd a b -> join " && " (L.map lBExpToString [a;b])
   | LBExpOr  a b -> join " || " (L.map lBExpToString [a;b])
   | LBExpEq  a b -> join " == " (L.map toString [a;b])
@@ -91,3 +111,45 @@ let rec lInstrToString (n:nat) exp: Tot string (decreases exp) = match exp with
   | LInstrIf c a b -> join "" [apptabs n "if ("; toString c; ") {\n"; lInstrToString (n+1) a; "\n" `strcat` apptabs n "} else {\n"; lInstrToString (n+1) b; "\n" `strcat` apptabs n "}"]
   | LInstrWhile c a -> join "" [apptabs n "while ("; toString c; ") {\n"; lInstrToString (n+1) a; "\n" `strcat` apptabs n "}" ]
 instance lInstrHasToString : hasToString lInstr = { toString = lInstrToString 0 }
+
+private
+let g t n (a: nat -> string)
+  = let t' = t + 1 in ntabs t ^ n ^ " (\n" ^ a t' ^ "\n" ^ ntabs t ^ ")" 
+let g' t n m (a: nat -> string)
+  = let t' = t + 1 in ntabs t ^ n ^ " (" ^ m ^ " ,\n" ^ a t' ^ "\n" ^ ntabs t ^ ")" 
+let h t n (a: nat -> string) (b: nat -> string)
+  = let t' = t + 1 in ntabs t ^ n ^ " (\n" ^ a t' ^ ", \n" ^ b t' ^ "\n" ^ ntabs t ^ ")" 
+let i t n (a: nat -> string) (b: nat -> string) (c: nat -> string)
+  = let t' = t + 1 in ntabs t ^ n ^ " (\n" ^ a t' ^ ", \n" ^ b t' ^ ", \n" ^ c t' ^ "\n" ^ ntabs t ^ ")" 
+
+let rec print_AST_lAExp v (t: nat) = match v with
+    | LAExpLitt n ->  ntabs t ^ toString n
+    | LAExpVar var -> ntabs t ^ "\"" ^ var ^ "\""
+    | LAExpPlus a b -> h t "LAExpPlus" (print_AST_lAExp a) (print_AST_lAExp b)
+    | LAExpMinus a b -> h t "LAExpMinus" (print_AST_lAExp a) (print_AST_lAExp b)
+    | LAExpMult a b -> h t "LAExpMult" (print_AST_lAExp a) (print_AST_lAExp b)
+    | LAExpDiv a b -> h t "LAExpDiv" (print_AST_lAExp a) (print_AST_lAExp b)
+    | LAExpCall name string -> "TODO"//h t "LAExpDiv" (print_AST_lAExp a) (print_AST_lAExp b)
+
+let rec print_AST_lBExp v (t: nat) = match v with
+  | LBExpLitt n -> toString n
+  | LBExpNot e -> g t "LBExpNot" (print_AST_lBExp e)
+  | LBExpAnd a b -> h t "LBExpAnd" (print_AST_lBExp a) (print_AST_lBExp b)
+  | LBExpOr  a b -> h t "LBExpOr" (print_AST_lBExp a) (print_AST_lBExp b)  
+  | LBExpEq  a b -> h t "LBExpEq" (print_AST_lAExp a) (print_AST_lAExp b)  
+  | LBExpLe  a b -> h t "LBExpLe" (print_AST_lAExp a) (print_AST_lAExp b)  
+
+let rec print_AST_lInstr' v (t: nat) = match v with  
+  | LInstrAssign var value  -> g' t "LInstrAssign" var (print_AST_lAExp value)
+  | LInstrSkip              -> "LInstrSkip"
+  | LInstrSeq    a   b      -> h t "LInstrSeq" (print_AST_lInstr' a) (print_AST_lInstr' b)  
+  | LInstrIf c btrue bfalse -> h t "LInstrIf" (print_AST_lBExp c) (print_AST_lInstr' btrue) 
+  | LInstrWhile  c   body   -> h t "LInstrWhile" (print_AST_lBExp c) (print_AST_lInstr' body)
+ 
+let print_AST_lInstr v = print_AST_lInstr' v 0 
+
+
+let rec print_fullProg (funs, prog) t =
+  let h = join "\n" in
+  [h (L.map (fun (FunDef name args body) -> "function " ^ name ^ " (" ^ join ", " args ^ ") {\n" ^ toString body ^ "\n}") funs), toString prog]
+  

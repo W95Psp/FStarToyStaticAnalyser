@@ -21,7 +21,7 @@ type interval = | EmptyInterval : interval
 		| SomeInterval  : (l:extInt) -> (r:extInt{l `le` r}) -> interval
 
 let mkExtInterval (l:extInt) (r:extInt{l `lt` r}) = SomeInterval l r
-let mkInterval (l:int) (r:int{l < r}) = SomeInterval (SomeInt l) (SomeInt r)
+let mkInterval (l:int) (r:int{l <= r}) = SomeInterval (SomeInt l) (SomeInt r)
 
 let union (a b:interval) = match a with
   | EmptyInterval -> b
@@ -131,6 +131,42 @@ let times = h2 (fun l r ->
     SomeInterval (min4 choices) (max4 choices)
   )
 
+private
+let div = divide
+let rec int_divide (l' r': interval): Tot interval (*decreases
+    %[
+      SomeInterval? r' && (let SomeInterval c d = r' in (SomeInt 1) `le` c),
+      SomeInterval? r' && (let SomeInterval c d = r' in d `le` (SomeInt (-1)))
+    ]
+  *) = h2 (fun l r -> 
+    let SomeInterval a b = l in
+    let SomeInterval c d = r in
+    if SomeInt 1 `le` c then (
+      let nl = (min (a `div` c)
+                    (a `div` d)) in
+      let nr = (max (b `div` c)
+                    (b `div` d)) in
+      admitP (nl `le` nr);
+      SomeInterval nl nr
+    ) else if d `le` SomeInt (-1) then (
+      let nl = (min (b `div` c)
+                    (b `div` d)) in
+      let nr = (max (a `div` c)
+                    (a `div` d)) in
+      admitP (nl `le` nr);
+      SomeInterval nl nr
+    ) else (
+      admitP (l << l); // todo, show (r `inter` wr*) "widen" second argument, then it goes in the two first cases 
+      let wrr = SomeInterval (SomeInt 1) plusInfty in
+      let wrl = SomeInterval minusInfty (SomeInt (-1)) in
+        (l `int_divide` (r `inter` wrr))
+      `union`
+        (l `int_divide` (r `inter` wrl))
+    )
+) l' r'
+
+let divide = int_divide
+
 type maybe a = | Just : a -> maybe a | Nothing : maybe a
 
 let basic_le_interval_int (i:interval) (v':int) = match i with
@@ -220,14 +256,36 @@ let rec interval_widen (i j:interval) = match (i, j) with
   | (a, EmptyInterval) -> a
   | (EmptyInterval, a) -> a
 
+private
+let bind (x: interval) (f: (extInt * extInt) -> interval) = match x with
+  | SomeInterval b0 b1 -> f (b0, b1)
+  | EmptyInterval    -> EmptyInterval
+  
+let interval_narrow l (r:interval{r `includes` l}) =
+  match l with
+    | EmptyInterval -> EmptyInterval
+    | SomeInterval a b -> (match r with
+      | EmptyInterval -> EmptyInterval
+      | SomeInterval c d -> 
+        SomeInterval
+          (if a = minusInfty then c else a)
+          (if b = plusInfty  then d else b)
+      )
+
+// soo bad/let interval_narrow_protected 
+
 instance intervalDomain : hasAbstractDomain interval = mkAbstractDomain #interval
                           union
                           inter
            (*bottom*)     EmptyInterval
            (*top*)        (SomeInterval ExtInt.minusInfty ExtInt.plusInfty)
            (*widen*)      interval_widen
+           (*narrow*)     interval_narrow
            (*assign*)     (fun _ (i: interval) -> i)
                           equal
+                          (fun x -> EmptyInterval = x)
+
+
 instance _ : hasDefaultValue interval = {def = (SomeInterval (SomeInt 0) (SomeInt 0))}
-instance _ : hasZeroOrLess interval = { zeroOrLess = SomeInterval minusInfty (SomeInt 0) }
-instance intervalOperators : hasAbstractOperators interval = mkAbstractOperators unaryMinus plus minus times
+instance _ : hasZeroOrLess interval = { zeroOrLess = SomeInterval minusInfty (SomeInt 0); zeroOnly = mkInterval 0 0; aroundZero = mkInterval (-1) (1) }
+instance intervalOperators : hasAbstractOperators interval = mkAbstractOperators unaryMinus plus minus times divide

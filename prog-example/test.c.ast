@@ -1,0 +1,34 @@
+LInstrSeq (
+    LInstrAssign (a ,
+        4
+    ), 
+    LInstrSeq (
+        LInstrWhile (
+            LBExpLe (
+                "a", 
+                10
+            ), 
+            LInstrAssign (a ,
+                LAExpPlus (
+                    3, 
+                    LAExpDiv (
+                        "a", 
+                        LAExpDiv (
+                            "", 
+                            "hey"
+                        )
+                    )
+                )
+            )
+        ), 
+        LInstrIf (
+            LBExpLe (
+                "a", 
+                7
+            ), 
+            LInstrAssign (a ,
+                7
+            )
+        )
+    )
+)

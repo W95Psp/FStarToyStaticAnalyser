@@ -13,13 +13,15 @@ let emptyState #a [| hasDefaultValue a |] () : state a =
 
 val norm_lAExp : state int -> lAExp -> int
 let rec norm_lAExp state exp =
-  let fA a b g = g (norm_lAExp state a) (norm_lAExp state b) in
+  let fA a b g = g (norm_lAExp state a) (norm_lAExp state b) in admitP (~(LAExpCall? exp));
   match exp with 
   | LAExpLitt v -> v
   | LAExpMinus a b -> fA a b ( fun x y -> x - y )
   | LAExpMult a b -> fA a b  ( * )
   | LAExpPlus a b -> fA a b  ( + )
+  | LAExpDiv a b ->  fA a b  ( fun x y -> if y = 0 then 0 else x / y )
   | LAExpVar v -> state v
+  //| LAExpCall name def -> 
 
 val norm_lBExp : state int -> lBExp -> bool
 let rec norm_lBExp state exp =

@@ -59,7 +59,15 @@ let rec times (a b:extInt): Tot extInt (decreases (match b with | Infty _ -> 0 |
   | SomeInt vb -> match a with
                  | Infty _ -> times b a
                  | SomeInt va -> SomeInt (vb * va)
-    
+
+let rec divide (a b:extInt): Tot extInt (decreases (match b with | Infty _ -> 0 | _ -> 1)) = match b with
+  | Infty sb -> SomeInt 0
+  | SomeInt vb -> (*if vb = zero then Empty
+                 else*) (match a with
+                 | Infty sa -> if (b `gt` zero) then (Infty sa)
+                             else (Infty (not sa))
+                 | SomeInt va -> SomeInt (if vb = 0 then 0 else va / vb)
+                 )
 
 let _ = assert (forall (a b:int). a < b ==> (SomeInt a) `lt` (SomeInt b))
 let _ = assert (forall (a:int). (SomeInt a) `lt` plusInfty)

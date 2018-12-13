@@ -5,4 +5,8 @@ module ZeroOrLess
 
 open FStar.Tactics.Typeclasses
 
-class hasZeroOrLess a = {zeroOrLess: a}
+class hasZeroOrLess a = {
+  zeroOrLess: a;
+  zeroOnly: a;
+  aroundZero: a
+}

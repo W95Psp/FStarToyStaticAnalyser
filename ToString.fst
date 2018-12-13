@@ -32,5 +32,6 @@ instance boolHasToString   : hasToString bool = {toString = fun v -> if v then "
 
 instance anyListHasToString #a [| hasToString a |] : hasToString (list a) = {toString = fun x -> "[" ^ join ", " (map toString x) ^ "]"}
 
-private
-let example = join "," ["A";"B";"C";"D"]
+let (^-) #t0 #t1 [| hasToString t0 |] [| hasToString t1 |] (s0: t0) (s1: t1) = toString s0 ^ toString s1
+
+//instance anyRefinedStringHasToString #pred : hasToString (s:string{pred s}) = {toString = id }

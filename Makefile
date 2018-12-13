@@ -41,6 +41,9 @@ gg:
 # all: verify-all
 all: gg codegen compile
 
+exec:
+	bash -c "cd out; ./Main.native"
+
 x: clean all
 
 test:
