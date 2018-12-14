@@ -28,4 +28,6 @@ let mi_write_string = output_string
 let mi_readdir path = Array.to_list (Sys.readdir path)
 let mi_file_exists = Sys.file_exists
 
+let mi_fail s = print_string s; exit 0; false
+                   
 let mi_debug_print_string s = print_string s; false

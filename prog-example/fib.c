@@ -1,7 +1,12 @@
+function superEssai(heyyy){
+	hey = hey + hey;
+};
+asdsad = 23;
 current = 1;
 previous = 1;
 i = 0;
 hey = 2;
+bloup = superEssai(23);
 while (i <= 6) {
 	i = i + 1;
 	hey = hey + 18;
@@ -14,4 +19,4 @@ while (i <= 16) {
 	hey = hey + 24;
 };
 x = 100;
-x = x / 7
+x = x / 7;

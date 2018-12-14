@@ -13,7 +13,7 @@ let emptyState #a [| hasDefaultValue a |] () : state a =
 
 val norm_lAExp : state int -> lAExp -> int
 let rec norm_lAExp state exp =
-  let fA a b g = g (norm_lAExp state a) (norm_lAExp state b) in admitP (~(LAExpCall? exp));
+  let fA a b g = g (norm_lAExp state a) (norm_lAExp state b) in
   match exp with 
   | LAExpLitt v -> v
   | LAExpMinus a b -> fA a b ( fun x y -> x - y )
@@ -21,7 +21,6 @@ let rec norm_lAExp state exp =
   | LAExpPlus a b -> fA a b  ( + )
   | LAExpDiv a b ->  fA a b  ( fun x y -> if y = 0 then 0 else x / y )
   | LAExpVar v -> state v
-  //| LAExpCall name def -> 
 
 val norm_lBExp : state int -> lBExp -> bool
 let rec norm_lBExp state exp =
@@ -46,7 +45,12 @@ val norm_lInstr : state int -> lInstr -> (fuel:nat) -> Tot (state int) (decrease
 let rec norm_lInstr state instr n = if n = 0 then state else
   let f = norm_lInstr in
   match instr with
-  | LInstrAssign name v -> (fun q -> if q = name then run state v else state q)
+  | LInstrAssign name v -> (fun q -> if q = name then 
+                 (match v with
+                 | AssignLAExp v -> run state v
+                 | AssignCall funName args -> state q (* TODO HERE *)
+                 )
+    else state q)
   | LInstrIf cond b1 b2 -> norm_lInstr state (if run state cond then b1 else b2) (n - 1)
   | LInstrSkip          -> state
   | LInstrSeq a b       -> f (f state a (n - 1)) b (n - 1)
@@ -54,35 +58,35 @@ let rec norm_lInstr state instr n = if n = 0 then state else
 				f state (b >> (while cond Do b End)) (n - 1)
 			  else  state
 
-let a = "a"
-let b = "b"
-let c = "c"
-let d = "d"
-let i = "i"
-let tmp = "tmp"
+// let a = "a"
+// let b = "b"
+// let c = "c"
+// let d = "d"
+// let i = "i"
+// let tmp = "tmp"
 
-let fib (max:int) =
-  (a =. (v 1)) >>
-  (b =. (v 1)) >>
-  (i =. (v 0)) >>
-  (while (!! i <=. (LAExpLitt max)) Do (
-    (tmp =. (!! a)) >>
-    (a =. (!! b)) >>
-    (b =. (!! tmp) +. (!! b)) >>
-    (i =. (!! i) +. (v 1))
-  ) End)
+// let fib (max:int) =
+//   (a =. (v 1)) >>
+//   (b =. (v 1)) >>
+//   (i =. (v 0)) >>
+//   (while (!! i <=. (LAExpLitt max)) Do (
+//     (tmp =. (!! a)) >>
+//     (a =. (!! b)) >>
+//     (b =. (!! tmp) +. (!! b)) >>
+//     (i =. (!! i) +. (v 1))
+//   ) End)
 
 instance _ : run_c lInstr (state int) = { run = fun s a -> norm_lInstr s a 100 }
 
-val execFib : int -> state int
-let execFib n = (run (emptyState ()) (fib n))
+// val execFib : int -> state int
+// let execFib n = (run (emptyState ()) (fib n))
 
-let xx n = execFib n "a"
+// let xx n = execFib n "a"
 
-let test = norm_lBExp (emptyState ()) (LBExpLitt true)
+// let test = norm_lBExp (emptyState ()) (LBExpLitt true)
 
 
-let xxx = run (emptyState ()) (v 2 +. v 3)
+// let xxx = run (emptyState ()) (v 2 +. v 3)
 
 // let main = 
 //   let i = FStar.IO.input_int () in

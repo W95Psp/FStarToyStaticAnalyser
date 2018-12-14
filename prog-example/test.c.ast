@@ -1,34 +1,35 @@
-LInstrSeq (
-    LInstrAssign (a ,
+
+
+
+ # Main prog:LInstrSeq (
+    LInstrAssign.Exp (a ,
         4
     ), 
-    LInstrSeq (
-        LInstrWhile (
-            LBExpLe (
-                "a", 
-                10
-            ), 
-            LInstrAssign (a ,
-                LAExpPlus (
-                    3, 
+    LInstrWhile (
+        LBExpLe (
+            "a", 
+            10
+        ), 
+        LInstrAssign.Exp (a ,
+            LAExpPlus (
+                3, 
+                LAExpDiv (
+                    "a", 
                     LAExpDiv (
-                        "a", 
-                        LAExpDiv (
-                            "", 
-                            "hey"
-                        )
+                        "", 
+                        "hey"
                     )
                 )
             )
+        )
+    ), 
+    LInstrIf (
+        LBExpLe (
+            "a", 
+            7
         ), 
-        LInstrIf (
-            LBExpLe (
-                "a", 
-                7
-            ), 
-            LInstrAssign (a ,
-                7
-            )
+        LInstrAssign.Exp (a ,
+            7
         )
     )
 )

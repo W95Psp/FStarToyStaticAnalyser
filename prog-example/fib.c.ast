@@ -1,93 +1,94 @@
-LInstrSeq (
-    LInstrAssign (current ,
+
+
+# Function superEssai (heyyy):
+LInstrAssign.Exp (hey ,
+    LAExpPlus (
+        "hey", 
+        "hey"
+    )
+)
+
+
+
+ # Main prog:LInstrSeq (
+LInstrSkip, 
+    LInstrAssign.Exp (asdsad ,
+        23
+    ), 
+    LInstrAssign.Exp (current ,
         1
     ), 
-    LInstrSeq (
-        LInstrAssign (previous ,
-            1
+    LInstrAssign.Exp (previous ,
+        1
+    ), 
+    LInstrAssign.Exp (i ,
+        0
+    ), 
+    LInstrAssign.Exp (hey ,
+        2
+    ), 
+    LInstrAssign.Call[bloup <- superEssai(..)] (
+        23
+    ), 
+    LInstrWhile (
+        LBExpLe (
+            "i", 
+            6
         ), 
         LInstrSeq (
-            LInstrAssign (i ,
-                0
+            LInstrAssign.Exp (i ,
+                LAExpPlus (
+                    "i", 
+                    1
+                )
             ), 
-            LInstrSeq (
-                LInstrAssign (hey ,
-                    2
-                ), 
-                LInstrSeq (
-                    LInstrWhile (
-                        LBExpLe (
-                            "i", 
-                            6
-                        ), 
-                        LInstrSeq (
-                            LInstrAssign (i ,
-                                LAExpPlus (
-                                    "i", 
-                                    1
-                                )
-                            ), 
-                            LInstrSeq (
-                                LInstrAssign (hey ,
-                                    LAExpPlus (
-                                        "hey", 
-                                        18
-                                    )
-                                ), 
-                                LInstrSeq (
-                                    LInstrAssign (tmp ,
-                                        "previous"
-                                    ), 
-                                    LInstrSeq (
-                                        LInstrAssign (previous ,
-                                            "current"
-                                        ), 
-                                        LInstrAssign (current ,
-                                            LAExpPlus (
-                                                "current", 
-                                                "tmp"
-                                            )
-                                        )
-                                    )
-                                )
-                            )
-                        )
-                    ), 
-                    LInstrSeq (
-                        LInstrWhile (
-                            LBExpLe (
-                                "i", 
-                                16
-                            ), 
-                            LInstrSeq (
-                                LInstrAssign (i ,
-                                    LAExpPlus (
-                                        "i", 
-                                        1
-                                    )
-                                ), 
-                                LInstrAssign (hey ,
-                                    LAExpPlus (
-                                        "hey", 
-                                        24
-                                    )
-                                )
-                            )
-                        ), 
-                        LInstrSeq (
-                            LInstrAssign (x ,
-                                100
-                            ), 
-                            LInstrAssign (x ,
-                                LAExpDiv (
-                                    "x", 
-                                    7
-                                )
-                            )
-                        )
-                    )
+            LInstrAssign.Exp (hey ,
+                LAExpPlus (
+                    "hey", 
+                    18
+                )
+            ), 
+            LInstrAssign.Exp (tmp ,
+                "previous"
+            ), 
+            LInstrAssign.Exp (previous ,
+                "current"
+            ), 
+            LInstrAssign.Exp (current ,
+                LAExpPlus (
+                    "current", 
+                    "tmp"
                 )
             )
+        )
+    ), 
+    LInstrWhile (
+        LBExpLe (
+            "i", 
+            16
+        ), 
+        LInstrSeq (
+            LInstrAssign.Exp (i ,
+                LAExpPlus (
+                    "i", 
+                    1
+                )
+            ), 
+            LInstrAssign.Exp (hey ,
+                LAExpPlus (
+                    "hey", 
+                    24
+                )
+            )
+        )
+    ), 
+    LInstrAssign.Exp (x ,
+        100
+    ), 
+    LInstrAssign.Exp (x ,
+        LAExpDiv (
+            "x", 
+            7
         )
     )
 )

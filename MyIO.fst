@@ -28,6 +28,8 @@ assume val mi_write_string : mi_fd_write -> string -> ML unit
 assume val mi_readdir : string -> ML (list string)
 assume val mi_file_exists : string -> ML bool
 
+assume val mi_fail: string -> Tot bool
+
 (* assume val *) 
 
 (*

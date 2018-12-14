@@ -57,7 +57,7 @@ let domGC = tupAbsDomHasGaloisConnection #int #interval #congruence
 
 let domToStr = emHasToString #dom #tupAbsDomHasToString
 
-let static_analysis_instr' = static_analysis_instr
+let static_analysis_fullProg' = static_analysis_fullProg
     #dom
     #tupAbsDomHasToString
     #domAO
@@ -66,56 +66,8 @@ let static_analysis_instr' = static_analysis_instr
     #(tupAbsDomHasZeroOrLess #interval #congruence)
     
 
-let guessInvariants prog = domToStr.toString  (static_analysis_instr' state0 prog)
+let guessInvariants prog = (* domToStr.toString *)  (static_analysis_fullProg' state0 prog)
 
-(* simple program summing two numbers *)
-let prog0 = (
-  (a =. (v 23)) >>
-  (b =. (v 12)) >>
-  (a =. (!! a) +. (!! b))
-  )
-
-// let _ = assert (guessInvariants prog0 == "") by (compute (); qed ())
-// -> gives "{b = [12 ; 12], a = [35 ; 35]}"
-
-(* simple program with a while *)
-let prog1 = (
-  (a =. (v 0)) >>
-  (b =. (v 0)) >>
-  (while ((!! a) <=. (v 10)) Do (
-    (a =. (!! a) +. (v 1)) >>
-    (b =. (!! b) +. (!! a))
-  ) End)
-)
-
-// let _ = assert (guessInvariants prog1 == "") by (compute (); qed ())
-// -> gives "{b = [0 ; +inf], a = [0 ; 11]}" (after a while, like 3 minutes!)
-
-(* simple program incremening a value till a upper bound with a while *)
-let prog2 = (
-  (while ((!! a) <=. (v 40)) Do (
-    (a =. (!! a) +. (v 5))
-  ) End)
-)
-
-// let _ = assert (guessInvariants prog2 == "") by (compute (); qed ())
-// -> gives "{a = [12 ; 45]}"
-
-
-(* max-th number of fibonnacci *)
-let prog3 (max:int) =
-  (a =. (v 1)) >>
-  (b =. (v 1)) >>
-  (i =. (v 0)) >>
-  (while (!! i <=. (v max)) Do (
-    (tmp =. (!! a)) >>
-    (a =. (!! b)) >>
-    (b =. (!! tmp) +. (!! b)) >>
-    (i =. (!! i) +. (v 1))
-  ) End)
-
-// let _ = assert (guessInvariants prog3) by (compute (); qed ())
-// take too long (I need to export to ML to actually compute it)
 
 open FStar.String
 open FStar.Char
@@ -124,9 +76,9 @@ module U32 = FStar.UInt32
 //let x = u32_of_char 'a'
 open ToyParser
 
-let getStr progStr i = match parse_toy_language progStr with
-                       | Just (FullProg _ prog) -> guessInvariants prog
-                       | Nothing   -> "Error parsing input"
+// let getStr progStr i = match parse_toy_language progStr with
+//                        | Just prog -> guessInvariants prog
+//                        | Nothing   -> "Error parsing input"
 
 //let getdir unit = mi_readdir "../prog-
 
@@ -164,8 +116,15 @@ let main_h (unit: unit) =
   List.map (fun x -> let _ = mi_debug_print_string ("\n# Process file " ^ x) in
                   let content = mi_get_file_contents (app x) in
                   let (ast, pp, invariants) = (match parse_toy_language content with
-                       | Just (FullProg _ prog) -> (print_AST_lInstr prog, toString prog, toString (guessInvariants prog))
-                       | Nothing   -> let m = "Error parsing input" in (m,m,m)
+                       | Some prog -> let invs = guessInvariants prog in
+                                     ( print_AST_fullProg prog
+                                     , toString prog
+                                     , (match invs with
+                                       | Inl x -> domToStr.toString x
+                                       | Inr x -> x
+                                       )
+                                     )
+                       | None   -> let m = "Error parsing input" in (m,m,m)
                        ) in
                   let file_result = mi_open_write_file (app x `strcat` ".result") in
                   mi_write_string file_result invariants;
