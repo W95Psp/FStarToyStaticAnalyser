@@ -5,7 +5,7 @@ open FStar.Char
 module L = FStar.List.Tot.Base
 open ToyLanguageDef
 
-open ParserCombinators
+open StarCombinator
 
 open ToString
 

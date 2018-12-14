@@ -1,0 +1,3 @@
+[submodule "StarCombinator"]
+	path = StarCombinator
+	url = git@github.com:W95Psp/StarCombinator.git
