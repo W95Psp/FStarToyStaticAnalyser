@@ -9,35 +9,50 @@ open StarCombinator
 
 open ToString
 
-
 private
 let uncurry f x = let (l,r) = x in f l r
 private
 let uncurry3 f x = let ((a,b),c) = x in f a b c
 
+let op_apply = (fun (l, mb) -> match mb with
+          | None -> l
+          | Some (op, r) -> op l r
+          )
+
+
 let aexp_parser: parser lAExp =
-  let rec no_rec (): parser lAExp = fp LAExpLitt match_nat <|> fp LAExpVar match_word
-                   <|> (match_keyword "(" <*>> (admitP (() << ()); delayMe h') <<*> match_keyword ")")
+  let rec no_rec (): parser lAExp =
+          between_kwd "(" ")" (admitP (()<<()); delayMe h')
+      <|> fp LAExpLitt number
+      <|> fp LAExpVar word
+      
   and h' (): parser lAExp = admitP (() << ()); let h = delayMe h' in
-         no_rec () <|> fp (uncurry LAExpPlus)  (no_rec () <<*> opc '+' <*> h)
-                   <|> fp (uncurry LAExpMinus) (no_rec () <<*> opc '-' <*> h)
-                   <|> fp (uncurry LAExpMult)  (no_rec () <<*> opc '*' <*> h)
-                   <|> fp (uncurry LAExpDiv)  (no_rec () <<*> opc '/' <*> h)
+      op_apply @<< (
+            no_rec ()
+          <*> maybe ((
+                (LAExpPlus *<< operator "+") <|> (LAExpMinus *<< operator "-")
+            <|> (LAExpMult *<< operator "*") <|> (LAExpDiv *<< operator "/")
+          ) <*> h)
+        )      
   in wrapspace (h' ())
 
 let bexp_parser: parser lBExp =
-  let rec no_rec (): parser lBExp = fp LBExpLitt match_boolean_litterate
-           <|> fp (uncurry LBExpEq) (aexp_parser <<*> match_string "==" () <*> aexp_parser)
-           <|> fp (uncurry LBExpLe) (aexp_parser <<*> match_string "<=" () <*> aexp_parser)
-           <|> fp LBExpNot (match_char () '~' <*>> (admitP (() << ()); delayMe no_rec))
-           <|> (match_keyword "(" <*>> delayMe h' <<*> match_keyword ")")
-  and h' (): parser lBExp = admitP (() << ()); let h = delayMe h' in
-    no_rec () <|> fp (uncurry LBExpAnd) (no_rec () <<*> match_string "&&" () <*> h)
-              <|> fp (uncurry LBExpOr)  (no_rec () <<*> match_string "||" () <*> h)
+  let rec no_rec (): parser lBExp = admitP (() << ()); let nr = delayMe no_rec in
+          (LBExpNot @<< (operator "~" <*>> nr))
+      <|> ptry (LBExpLitt true  *<< keyword "true" <|> LBExpLitt false *<< keyword "false")
+      <|> ptry (between (operator "(") (operator ")") (delayMe h'))
+      <|> ptry (fp (fun ((l, op), r) -> op l r)
+        (aexp_parser <*> (
+           (LBExpEq *<< operator "==") <|> (LBExpLe *<< operator "<=")
+        ) <*> aexp_parser))
+  and h' (): parser lBExp =   admitP (() << ()); let h = delayMe h' in
+          op_apply @<<
+          (no_rec () <*> maybe (
+                ((LBExpAnd *<< operator "&&") <|> (LBExpOr *<< operator "||"))
+            <*> h
+          ))
   in wrapspace (h' ())
-
-
-private
+  
 type lFakeInstr =
   | LFakeInstrAssign : string -> lInstrAssignable -> lFakeInstr
   | LFakeInstrSkip   : lFakeInstr
@@ -47,58 +62,66 @@ type lFakeInstr =
   | LFakeInstrFunDef : funFakeDef -> lFakeInstr
 and funFakeDef = | FunFakeDef : string -> list string -> lFakeInstr -> funFakeDef
 
-
-
-instance pr_ts #a [| hasToString a |] : hasToString (parserResult a) = { 
-   toString = fun v -> match v with
-    | ParserRes pos somevalue -> join "" ["{pos:"; string_of_int pos ; "} "; toString somevalue]
-    | NoRes -> "NoRes"
-}
-
-private
 let rec lFakeInstrIsWF prog toplevel = match prog with 
   | LFakeInstrSeq a b -> lFakeInstrIsWF a toplevel && lFakeInstrIsWF b toplevel 
   | LFakeInstrIf  _ a b -> lFakeInstrIsWF a false && lFakeInstrIsWF b false 
   | LFakeInstrWhile _ a -> lFakeInstrIsWF a false
   | LFakeInstrFunDef (FunFakeDef _ _ a) -> if toplevel then lFakeInstrIsWF a false else false 
   | _ -> true
-private
+
 type lFakeInstrWF = r:lFakeInstr {lFakeInstrIsWF r true}
 
-private
-let hAssignCall var fName args = LFakeInstrAssign var (AssignCall fName args)
-private
-let hAssignExp var exp = LFakeInstrAssign var (AssignLAExp exp) 
+let hAssign (var, eith) = match eith with
+    | Inl (fName, args) -> LFakeInstrAssign var (AssignCall fName args)
+    | Inr exp -> LFakeInstrAssign var (AssignLAExp exp) 
 
-private
+let match_comment: parser string = spaces <*>> keyword "//" <*>> string_satisfy (fun x -> x <> '\n')
+let match_comments: parser (list string) = fp (fun x -> match x with | Some x -> x | None -> []) (maybe (many match_comment))
+
+let hIf ((cond, body0), body1) = LFakeInstrIf cond body0 body1
+let hWhile (cond, body) = LFakeInstrWhile cond body
+let hFunction ((str,args),body) = LFakeInstrFunDef (FunFakeDef str args body)
+
 let lFakeInstr_parser: parser (r:lFakeInstr {lFakeInstrIsWF r true}) =
-   let z #a (arg:parser a) = arg <<*> match_comments in
-   let rec no_rec (tl:bool): parser (r:lFakeInstr {lFakeInstrIsWF r tl}) = admitP (() << ()); z (
-           fp (uncurry hAssignExp) (match_word <<*> match_keyword "=" <*> aexp_parser)
-       <|> fp (uncurry3 hAssignCall) (match_word <<*> match_keyword "="
-              <*> match_word <*> match_list "(" ")" aexp_parser)
-       <|> match_string "SKIP" LFakeInstrSkip
-       <|> fp (uncurry3 LFakeInstrIf) (
-                  ((match_keywords ["if"; "("] <*>> bexp_parser) <<*> match_keywords [")"; "{"])
-              <*> ((delayMe (h' false)) <<*> match_keywords ["}";"else";"{"])
-              <*> ((delayMe (h' false)) <<*> match_keyword "}")
-           )
-       <|> fp (fun ((str,args),body) -> LFakeInstrFunDef (FunFakeDef str args body)) (
-                  (match_keyword "function" <*>> match_word <*> 
-                    (match_list "(" ")" match_word)
-                    <<*> match_keyword "{")
-              <*> (delayMe (h' false) <<*> match_keyword "}")
-           )       
-       <|> fp (uncurry LFakeInstrWhile) (
-                  ((match_keywords ["while";"("] <*>> bexp_parser) <<*> match_keywords [")";"{"])
-              <*> ((delayMe (h' false)) <<*> match_keyword "}")
-           ))
-   and h' (tl:bool) (): parser (r:lFakeInstr {lFakeInstrIsWF r tl}) = admitP (() << ()); let h = delayMe (h' tl) in
-     z (
-       no_rec tl <|> fp (uncurry LFakeInstrSeq) (no_rec tl <<*> match_keyword ";" <*> (match_comments <*>> h))
-                 <|> (no_rec tl <<*> match_keyword ";")
+   let z #a (arg:parser a) = arg  in
+   let rec no_rec (tl:bool): parser (r:lFakeInstr {lFakeInstrIsWF r tl}) =
+       admitP (() << ()); let nr = delayMe (h' false) in
+   z (
+       ( hIf @<<
+         (((keyword "if" <*> operator "(") <*>> bexp_parser <<*> (operator ")" <*> operator "{")) <*>
+           (nr <<*> (operator "}" <*> keyword "else" <*> operator "{")) <*>
+           (nr <<*> operator "}"))
+       )
+   <|> ( hWhile @<< (
+                ((keyword "while" <*> operator "(") <*>> bexp_parser <<*> (operator ")" <*> operator "{"))
+            <*> (nr <<*> operator "}")
+            )
+       )
+   <|> ( hFunction @<< (
+                   (operator "function" <*>> word)
+               <*> (match_list "(" ")" "," word <<*> operator "{")
+               <*> (nr <<*> operator "}")
+               )
+       )
+   <|> (LFakeInstrSkip *<< operator "SKIP")
+   <|> (hAssign @<< (word <<*> operator "=" <*> (
+             ptry (word <*> match_list "(" ")" "," aexp_parser)
+         </> aexp_parser
+       )))
+   )
+   and h' (tl:bool) (): parser (r:lFakeInstr {lFakeInstrIsWF r tl}) = admitP (() << ()); let h = delayMe (h' tl) in z (
+       (fun (s1, s2) -> match s2 with
+                     | None    -> s1
+                     | Some s2 -> LFakeInstrSeq s1 s2
+       ) @<< (no_rec tl <*> maybe (operator ";" <*>> h))//(match_comments <*>> h)))
      )
    in wrapspace (h' true ())
+
+// instance pr_ts #a [| hasToString a |] : hasToString (parserResult a) = { 
+//    toString = fun v -> match v with
+//     | ParserRes pos somevalue -> join "" ["{pos:"; string_of_int pos ; "} "; toString somevalue]
+//     | NoRes _ _ -> "NoRes"
+// }
 
 private
 let wfFakeConv (r:lFakeInstr {lFakeInstrIsWF r true}): (list funDef * lInstr) =
@@ -122,7 +145,5 @@ let fullProg_parser: parser fullProg =
   fp (fun x -> let (a, b) = wfFakeConv x in FullProg a b) lFakeInstr_parser
 
 
-let parse_toy_language src = match (fullProg_parser <<*> match_eof) src 0 with
-  | ParserRes _ res -> Some res
-  | NoRes -> None
+let parse_toy_language: string -> (either fullProg string) = make (fullProg_parser <<*> eof)
 

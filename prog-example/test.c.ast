@@ -13,13 +13,7 @@
         LInstrAssign.Exp (a ,
             LAExpPlus (
                 3, 
-                LAExpDiv (
-                    "a", 
-                    LAExpDiv (
-                        "", 
-                        "hey"
-                    )
-                )
+                "a"
             )
         )
     ), 

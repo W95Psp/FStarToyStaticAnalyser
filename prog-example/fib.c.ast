@@ -1,17 +1,7 @@
 
 
-# Function superEssai (heyyy):
-LInstrAssign.Exp (hey ,
-    LAExpPlus (
-        "hey", 
-        "hey"
-    )
-)
-
-
 
  # Main prog:LInstrSeq (
-LInstrSkip, 
     LInstrAssign.Exp (asdsad ,
         23
     ), 
@@ -26,9 +16,6 @@ LInstrSkip,
     ), 
     LInstrAssign.Exp (hey ,
         2
-    ), 
-    LInstrAssign.Call[bloup <- superEssai(..)] (
-        23
     ), 
     LInstrWhile (
         LBExpLe (

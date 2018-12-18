@@ -116,7 +116,7 @@ let main_h (unit: unit) =
   List.map (fun x -> let _ = mi_debug_print_string ("\n# Process file " ^ x) in
                   let content = mi_get_file_contents (app x) in
                   let (ast, pp, invariants) = (match parse_toy_language content with
-                       | Some prog -> let invs = guessInvariants prog in
+                       | Inl prog -> let invs = guessInvariants prog in
                                      ( print_AST_fullProg prog
                                      , toString prog
                                      , (match invs with
@@ -124,7 +124,7 @@ let main_h (unit: unit) =
                                        | Inr x -> x
                                        )
                                      )
-                       | None   -> let m = "Error parsing input" in (m,m,m)
+                       | Inr m -> let _ = mi_print_string m in (m,m,m)
                        ) in
                   let file_result = mi_open_write_file (app x `strcat` ".result") in
                   mi_write_string file_result invariants;
