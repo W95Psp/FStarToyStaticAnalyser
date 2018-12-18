@@ -9,3 +9,17 @@ Brief description of main modules
  - [CSet](CSet.fst): enumerable non-ordered sets
 
 ## Compiling to native
+Just run:
+```
+make clean
+make all
+```
+
+This will clean, build and execute the analyser.
+
+Then run `make exec` to run the analyser again.
+
+The analyser look at `*.c` files in the folder `prog-example`. For each file `file`, it produces:
+ - `file.ast`: the abstract syntax tree of a program
+ - `file.pp`: the pretty-printed version of a program
+ - `file.result`: the resulting analysis
