@@ -30,8 +30,8 @@ let aexp_parser: parser lAExp =
       op_apply @<< (
             no_rec ()
           <*> maybe ((
-                (LAExpPlus *<< operator "+") <|> (LAExpMinus *<< operator "-")
-            <|> (LAExpMult *<< operator "*") <|> (LAExpDiv *<< operator "/")
+                (ptry (LAExpPlus *<< operator "+")) <|> (ptry (LAExpMinus *<< operator "-"))
+            <|> (ptry (LAExpMult *<< operator "*")) <|> (ptry (LAExpDiv *<< operator "/"))
           ) <*> h)
         )      
   in wrapspace (h' ())
@@ -81,7 +81,7 @@ let match_comments: parser (list string) = fp (fun x -> match x with | Some x ->
 let hIf ((cond, body0), body1) = LFakeInstrIf cond body0 body1
 let hWhile (cond, body) = LFakeInstrWhile cond body
 let hFunction ((str,args),body) = LFakeInstrFunDef (FunFakeDef str args body)
-
+ 
 let lFakeInstr_parser: parser (r:lFakeInstr {lFakeInstrIsWF r true}) =
    let z #a (arg:parser a) = arg  in
    let rec no_rec (tl:bool): parser (r:lFakeInstr {lFakeInstrIsWF r tl}) =
@@ -99,13 +99,13 @@ let lFakeInstr_parser: parser (r:lFakeInstr {lFakeInstrIsWF r true}) =
        )
    <|> ( hFunction @<< (
                    (operator "function" <*>> word)
-               <*> (match_list "(" ")" "," word <<*> operator "{")
+               <*> (match_list "(" ")" (operator ",") word <<*> operator "{")
                <*> (nr <<*> operator "}")
                )
        )
    <|> (LFakeInstrSkip *<< operator "SKIP")
    <|> (hAssign @<< (word <<*> operator "=" <*> (
-             ptry (word <*> match_list "(" ")" "," aexp_parser)
+             ptry (word <*> match_list "(" ")" (operator ",") aexp_parser)
          </> aexp_parser
        )))
    )

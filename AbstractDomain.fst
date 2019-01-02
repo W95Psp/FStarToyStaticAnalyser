@@ -55,6 +55,10 @@ let mkAbstractOperators #a [| hasAbstractDomain a |] [| hasDefaultValue a |]
   ; a_op_div         = a_op_div
   }
 
+// let areAbstractOperatorsWellFounded #c #a [| hasAbstractOperators a |] [| hasGaloisConnection c a |]
+//   = (forall (x y: a) . gamma (a_op_plus x y) == gamma ())
+//   /\ 
+
 
 (* TODO/idea: Use meta-F* to generate those function *)
 let backward_aop_le0         #a [| hasAbstractOperators a |] [| hasAbstractDomain a |] (x r  :a) (lessThanZero:a)

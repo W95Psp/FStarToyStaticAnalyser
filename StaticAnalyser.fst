@@ -13,6 +13,7 @@ open ToyLanguageDef
 open EnumerableMap
 open AbstractDomain
 open ZeroOrLess
+open PartialOrder
 
 module Parser = ToyParser
 module L = FStar.List.Pure.Base
@@ -25,14 +26,6 @@ class hasToList a b = {
   toList: a -> list b 
 }
 instance constHasToList #a: hasToList a a = { toList = fun v -> [v] }
-
-
-
-//type isAbstractDomain = (x:Type {exists (d: hasAbstractDomain x). True})
-//open Interval
-// need to express type with behaviour, i.e. existentials types
-//instance tup2HasToList #a: hasToList (a, b) a = { toList = fun v -> [v] }
-
 
 let rec findInTupList #a key (l:list (string * a)): a = admitP (~ (l == [])); match l with
   | (s,h)::t -> if key = s then h else findInTupList key t  
@@ -75,18 +68,20 @@ let rec backward_analysis_aexp #a [| hasGaloisConnection int a |] [| hasAbstract
   | LAExpMult  e1 e2  -> op2 backward_aop_mul   e1 e2
   | LAExpDiv   e1 e2  -> op2 backward_aop_div   e1 e2
 
-open PartialOrder
 
 let all_bottom #a [| hasAbstractDomain a |] (st: enumerableMap a) = {_em_data = (fun _ -> bottom); _em_keys = st._em_keys}
 
-let is_bottom #a [| hasPartialOrder a |] [| hasAbstractDomain a |] (st: enumerableMap a) =
+let is_bottom #a [| hasAbstractDomain a |] (st: enumerableMap a) =
     List.Tot.Base.existsb (fun k -> isBottom (em_get st k)) st._em_keys
 
-let spread_bottom #a [| hasPartialOrder a |] [| hasAbstractDomain a |] (st: enumerableMap a) =
+let spread_bottom #a [| hasAbstractDomain a |] (st: enumerableMap a) =
     if is_bottom st
     then all_bottom st
     else st
-    
+
+let lemma_bexp_count_not_or a b
+  : Lemma (bexp_count_not (LBExpOr a b) == bexp_count_not a + bexp_count_not b) = ()
+
 (* Given an boolean expression `bexp` and a state, `analyse_bexp` returns a state satisfying `bexp` *)
 let rec analyse_bexp #a [| hasAbstractOperators a |] [| hasAbstractDomain a |] [| hasGaloisConnection int a |] [| hasZeroOrLess a |]
                      (st:enumerableMap a)
@@ -95,37 +90,26 @@ let rec analyse_bexp #a [| hasAbstractOperators a |] [| hasAbstractDomain a |] [
                                      the size of exp (i.e. the deepness of the AST) is decreasing *)
                                   (decreases %[bexp_count_not exp; exp])
   =
-  spread_bottom #a #a_po (match exp with
+  spread_bottom #a (match exp with
   | LBExpLitt b -> if b then st (* supposing true doesn't bring anything new *)
                        else all_bottom st (* variables should all be bottom *)
   (* if `not` is terminal (i.e. `! (3 <= 45)`) *)
   | LBExpNot (LBExpEq a b) -> backward_analysis_aexp st (a -. b) (alpha' 0)
   (* otherwise, we apply demorgan and `a <= b ==> b <= a && !(a==b)` *)
-  | LBExpNot  b -> let rec apply_not (e:lBExp): (r:lBExp{bexp_count_not e >= bexp_count_not r}) = (match e with
-                          | LBExpNot e1    -> e1
-                          | LBExpAnd e1 e2 -> LBExpOr  (apply_not e1) (apply_not e2)
-                          | LBExpOr  e1 e2 -> LBExpAnd (apply_not e1) (apply_not e2)
-                          | LBExpLe  e1 e2 -> ((e2 +. (v 1)) <=. e1) // for now we discard this &&. (!. (e1 ==. e2))
-                          | LBExpEq  e1 e2 -> LBExpNot e
-                          | LBExpLitt   _  -> e
-                          ) in 
-                            let nexp = apply_not b in
-                               analyse_bexp st nexp
+  | LBExpNot  b -> analyse_bexp st (apply_de_morgan b)
                      (* `em_combine` takes two states and apply a function for 
                         each pairs of values that share a same key *)
-  | LBExpAnd  a b -> em_combine (analyse_bexp st a) (analyse_bexp st b) inter
-  | LBExpOr   a b -> em_combine (analyse_bexp st a) (analyse_bexp st b) union
+  | LBExpAnd  a b -> admit(); em_combine (analyse_bexp st a) (analyse_bexp st b) inter
+  | LBExpOr   a b -> admit(); em_combine (analyse_bexp st a) (analyse_bexp st b) union
   | LBExpEq   a b -> backward_analysis_aexp st (a -. b) (alpha' 0)//lessThanZero
   | LBExpLe   a b -> backward_analysis_aexp st (a -. b) zeroOrLess
+  | _ -> st
   )
-
 
 open MyIO
 open ToString
 
 let prt str = mi_debug_print_string str
-
-//let _ = assert (Prims.Tot = Tot)
 
 let fail #a (reason:string): a = let x = MyIO.mi_fail ("ERROR: "^reason) in magic ()
 
@@ -156,7 +140,6 @@ let rec function_call_safe funDefs instr: option string =
   let bind v f = (match v with | None -> f () | _ -> v) in
   _ <-- check_calls funDefs instr;
   LL.fold_left (fun x (FunDef _ _ b) -> _ <-- x; check_calls funDefs b) None funDefs
-//  LL.for_all (fun (FunDef _ _ b) -> check_calls funDefs b) funDefs
 
 let ( @$ ) f x = f x
 
@@ -164,43 +147,49 @@ let rec lst_contains (#a:eqtype) (x:a) (l: list a) = match l with
   | [] -> false
   | h::t -> if h = x then true else lst_contains x t 
 
+// private
+// let assign_variable (LInstrAssign name v) = 
+
 (* This functions perform static analysis on instructions, i.e. on full programs *)
 let rec static_analysis_instr #a [| hasToString a |] [| hasAbstractOperators a |] [| hasAbstractDomain a |] [| hasGaloisConnection int a |] [| hasZeroOrLess a |]
                     (funs: list funDef)
                     (st:enumerableMap a)
                     (instr: lInstr {None? (function_call_safe funs instr)})
                     : Tot (enumerableMap a) (decreases instr)
-  = let f = static_analysis_instr funs in
+  = let f = admit(); static_analysis_instr funs in
     let cs (x:enumerableMap a) = emHasToString.toString x in
     let printCond st c = prt ("\n Cond '" ^ toString c ^ "' gives: \n" ^ cs (analyse_bexp st c)) in
     match (assert (None? (check_calls funs instr)); instr) with
   | LInstrAssign name v -> (
-  (match v with
-      | AssignLAExp v -> em_set st name @$ static_analysis_aexp st v
-      | AssignCall funName args ->
-          let Some (args_name, fun_body) = lookupFun funs funName in
-          let l = L.zip args_name args in
-          let toExec: lInstr = (LL.fold_left LInstrSeq LInstrSkip (
-                      ( LL.map (fun (name, value) -> name =. (AssignLAExp value)) l
-                    @ [ fun_body ])
-               )) in
-          let st' = (
-            admitP (None? (function_call_safe funs fun_body));
-            admitP (%[toExec] << %[instr]);
-            let _ = prt (toString toExec) in
-            static_analysis_instr funs st (admit();toExec)
-          ) in
-          { _em_data = (fun var -> if lst_contains var args_name
-                                then st._em_data var
-                                else st'._em_data var)
-          ; _em_keys = st'._em_keys}
-          //LL.fold_left (fun state name -> em_set state name (em_get st name)) st'
-      )
-  )
+     (match v with
+       | AssignLAExp v -> em_set st name @$ static_analysis_aexp st v
+       | AssignCall funName args ->
+           let Some (args_name, fun_body) = lookupFun funs funName in
+           let l = L.zip args_name args in
+           let toExec: lInstr = (LL.fold_left LInstrSeq LInstrSkip (
+                       ( LL.map (fun (name, value) -> name =. (AssignLAExp value)) l
+                     @ [ fun_body ])
+                )) in
+           let st' = (
+             admitP (None? (function_call_safe funs fun_body));
+             admitP (%[toExec] << %[instr]);
+             let _ = prt (toString toExec) in
+             static_analysis_instr funs st (admit();toExec)
+           ) in
+           { _em_data = (fun var -> if lst_contains var args_name
+                                 then st._em_data var
+                                 else st'._em_data var)
+           ; _em_keys = st'._em_keys}
+       )
+   )
   | LInstrSkip          -> st
-  | LInstrSeq b1 b2     -> f (f st b1) b2
-  | LInstrIf c b1 b2    -> let r1 = f (analyse_bexp st     c ) b1 in
-                          let r2 = f (analyse_bexp st (!. c)) b2 in
+  | LInstrSeq b1 b2     -> f
+        (f st (admitP (None? (function_call_safe funs b1));
+               admitP (b1 << instr);
+               admit (); b1))
+              b2
+  | LInstrIf c b1 b2    -> let r1 = admit(); f (admit(); analyse_bexp st     c ) b1 in
+                          let r2 = admit(); f (admit(); analyse_bexp st (!. c)) b2 in
                           let _ = prt ("\n [IF] Previous state is\n" ^ cs st) in
                           let _ = printCond st c in
                           let _ = printCond st (!. c) in
@@ -230,25 +219,31 @@ let rec static_analysis_instr #a [| hasToString a |] [| hasAbstractOperators a |
                           let st = unroll 0 st in
                           let _ = printCond st (!. cond) in
                           let unify z = em_combine z (analyse_bexp st (!. cond)) union in
-                          let st' = findFixPoint st (fun x ->
+                          let invariant: enumerableMap a = findFixPoint st (fun x ->
                               let x' = f (apply_cond x) body in
                               em_combine x' (apply_cond (em_combine x x' widen)) union
                             ) None in
-                          //st'
-                          let st'' = findFixPoint st'
+                          let shouldNarrow = false in
+                          let invariant = (match shouldNarrow with
+                              | true -> findFixPoint invariant
                                        (fun x -> let y = f (apply_cond x) body in
-                                              if is_bottom #a #ab_dom_po y then x else y
-                                       )
-                                       (Some 20) in
-                          let _ =  prt ("\n [WHILE] st'\n" ^ cs st') in
-                          let _ =  prt ("\n [WHILE] st''\n" ^ cs st'') in
-                          let _ =  prt ("\n [WHILE] (st'' inter st')\n" ^ cs (em_combine st'' st' inter)) in
+                                              if is_bottom #a y then x else y
+                                       ) (Some 3)
+                              | false -> invariant) in
+                          //              (Some 20) in
+                          //let _ =  prt ("\n [WHILE] st = \n" ^ cs st) in
+                          //let _ =  prt ("\n [WHILE] inv = \n" ^ cs inv) in
+                          //let _ =  prt ("\n [WHILE] analyse_bexp inv (!. cond) = \n" ^ cs (analyse_bexp inv (!. cond))) in
+                          // let _ =  prt ("\n [WHILE] st''\n" ^ cs st'') in
+                          // let _ =  prt ("\n [WHILE] (st'' inter st')\n" ^ cs (em_combine st'' st' inter)) in
                           //let _ =  prt ("\n [XX] (st'' inter st')\n" ^ cs (em_combine st'' st' inter)) in
-                          unify (em_combine st'' st' inter)
                           //em_combine (analyse_bexp st (!. cond)) (lookForFixPoint st 4) union
-
+                          let after = analyse_bexp invariant (!. cond) in // after loop, filter
+                          unify after
+                          
 let static_analysis_fullProg #a [| hasToString a |] [| hasAbstractOperators a |] [| hasAbstractDomain a |] [| hasGaloisConnection int a |] [| hasZeroOrLess a |]
                              state (FullProg funs prog) = 
                                match function_call_safe funs prog with
                                | None -> Inl (static_analysis_instr funs state prog)
                                | Some x -> Inr x 
+ 

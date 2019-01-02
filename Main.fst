@@ -104,8 +104,9 @@ let get_ext name = let chunks = split ['.'] name in
                                                             else ""
 let filter_ext ext name = get_ext name = ext
 
+//let ff (): ML (list unit) = []
 
-let main_h (unit: unit) =
+let main_h (): ML (list unit) =
   let basedir = "../prog-example/" in
   let app = strcat basedir in
   let l = mi_readdir basedir in
@@ -113,12 +114,13 @@ let main_h (unit: unit) =
   let l = List.filter (fun p -> mi_file_exists (app p)) l in
   let l = List.filter (fun p -> get_ext p = "c") l in
   mi_print_string (anyListHasToString.toString (FStar.List.Tot.Base.map get_ext l));
-  List.map (fun x -> let _ = mi_debug_print_string ("\n# Process file " ^ x) in
+  let f (x: string): ML unit = 
+                  let _ = mi_debug_print_string ("\n# Process file " ^ x) in
                   let content = mi_get_file_contents (app x) in
-                  let (ast, pp, invariants) = (match parse_toy_language content with
-                       | Inl prog -> let invs = guessInvariants prog in
-                                     ( print_AST_fullProg prog
-                                     , toString prog
+                  let (ast, pp, invariants) = (match admit(); parse_toy_language content with
+                       | Inl prog -> let invs = admit(); guessInvariants prog in
+                                     ( (admit (); print_AST_fullProg prog)
+                                     , (admit (); toString prog)
                                      , (match invs with
                                        | Inl x -> domToStr.toString x
                                        | Inr x -> x
@@ -134,8 +136,9 @@ let main_h (unit: unit) =
                   mi_close_write_file file_pp;
                   let file_ast    = mi_open_write_file (app x `strcat` ".ast") in
                   mi_write_string file_ast    ast;
-                  mi_close_write_file file_ast
-    ) l
+                  mi_close_write_file file_ast;
+                  () in
+  List.map f l
 
 let main = main_h ()
 

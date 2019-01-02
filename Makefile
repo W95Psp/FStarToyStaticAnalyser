@@ -1,13 +1,16 @@
-STAR=/home/FStar/FStar/bin/fstar.exe
-FSTAR_HOME=/home/FStar/FStar/
+STAR=/home/lucas/.opam/default/bin/fstar.exe
+#/home/FStar/FStar/bin/fstar.exe
+FSTAR_HOME=/home/lucas/.opam/default/lib/fstar/
+FSTAR_ULIB=/home/lucas/.opam/default/lib/fstar/
+#/home/FStar/FStar/
 CAMLDEP=ocamldep
 
 ifndef FSTAR_HOME
    $(error "Please define the `FSTAR_HOME` variable before including this makefile.")
 endif
 
-include $(FSTAR_HOME)/ulib/gmake/z3.mk
-include $(FSTAR_HOME)/ulib/gmake/fstar.mk
+include $(FSTAR_ULIB)/gmake/z3.mk
+include $(FSTAR_ULIB)/gmake/fstar.mk
 
 EXEC = Main.out
 
@@ -25,7 +28,7 @@ endif
 %.fail-uver: %.fst
 	(! $(FSTAR) $^ >/dev/null 2>&1) || (echo "NEGATIVE TEST FAILED ($@)!" ; false)
 
-include $(FSTAR_HOME)/ulib/ml/Makefile.include
+include $(FSTAR_ULIB)/ml/Makefile.include
 
 
 ROOTS=$(shell echo *.fst)# AbstractDomain.fst CSet.fst CSetPO.fst DefaultValue.fst EnumerableMap.fst ExtInt.fst GaloisConnection.fst Interval.fst Main.fst Misc.fst PartialOrder.fst StaticAnalyser.fst ToString.fst ToyLanguageDef.fst ToyLanguageInterpreter.fst ZeroOrLess.fst
@@ -34,7 +37,7 @@ compile:
 	bash compile.sh
 
 gg:
-	mkdir out
+	mkdir -p out
 	cp MyIO.ml out/
 	# cp /home/FStar/FStar/ulib/ml/FStar_Char.ml out/
 

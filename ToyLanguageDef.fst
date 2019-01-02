@@ -85,6 +85,18 @@ let rec bexp_count_not (e:lBExp): nat = match e with
   | LBExpOr x y -> bexp_count_not x + bexp_count_not y
   | _ -> 0
 
+let lemma_bexp_count_not_and a b
+  : Lemma (bexp_count_not (LBExpOr a b) >= bexp_count_not a) = ()
+
+let rec apply_de_morgan (e:lBExp): (r:lBExp{bexp_count_not e >= bexp_count_not r})
+  = match e with
+  | LBExpNot e1    -> e1
+  | LBExpAnd e1 e2 -> LBExpOr  (apply_de_morgan e1) (apply_de_morgan e2)
+  | LBExpOr  e1 e2 -> LBExpAnd (apply_de_morgan e1) (apply_de_morgan e2)
+  | LBExpLe  e1 e2 -> e2 +. v 1 <=. e1 // for now we discard this &&. (!. (e1 ==. e2))
+  | LBExpEq  e1 e2 -> LBExpNot e
+  | LBExpLitt   _  -> e
+     
 private
 let rec ntabs (n:nat): string = if n=0 then "" else strcat "    " (ntabs (n-1))
 private
@@ -92,10 +104,10 @@ let apptabs (n:nat): string -> string = strcat (ntabs n)
 let rec lAExpToString exp = match exp with 
          | LAExpLitt z -> toString z
          | LAExpVar s -> s
-         | LAExpPlus  a b -> join " + " (L.map lAExpToString [a;b])
-         | LAExpMinus a b -> join " - " (L.map lAExpToString [a;b])
-         | LAExpMult  a b -> join " * " (L.map lAExpToString [a;b])
-         | LAExpDiv  a b  -> join " / " (L.map lAExpToString [a;b])
+         | LAExpPlus  a b -> " + " `join` L.map lAExpToString [a;b]
+         | LAExpMinus a b -> " - " `join` L.map lAExpToString [a;b]
+         | LAExpMult  a b -> " * " `join` L.map lAExpToString [a;b]
+         | LAExpDiv  a b  -> " / " `join` L.map lAExpToString [a;b]
          //| LAExpCall name args -> name ^ "(" ^ (join ", " (L.map (admit (); lAExpToString) args)) ^ ")"
          
 instance lAExpHasToString : hasToString lAExp = { toString = lAExpToString }

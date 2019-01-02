@@ -113,11 +113,39 @@ let plus = h2 (fun a b ->
     SomeInterval (a1 `plus` b1) (a2 `plus` b2)
   )
 
+ 
+private
+let lift_cst x = mkInterval x x
+//let lemma_plus (a: int) (b: int): Lemma (plus (lift_cst a) (lift_cst b) = lift_cst (a + b)) = () 
+
+let correct_bin_op_abstraction
+    #a #c
+    (c_op: c -> c -> c)
+    (a_op: a -> a -> a)
+    (lift: c -> a)
+    (le: a -> a -> bool)
+    a0 a1 (c0: c {lift c0 `le` a0})
+          (c1: c {lift c1 `le` a1})
+  = (lift (c_op c0 c1) `le` a_op a0 a1)
+
+let correct_bin_op_abstraction'
+    #a #c
+    (c_op: c -> c -> c)
+    (a_op: a -> a -> a)
+    (lift: c -> a)
+    (le: a -> a -> bool)
+    a0 a1 c0 c1
+  = ((lift c0 `le` a0 && lift c1 `le` a1) ==> lift (c_op c0 c1) `le` a_op a0 a1)
+
+let lemma_add_correct x y x' y': Lemma (correct_bin_op_abstraction (+) plus lift_cst includes x y x' y') = ()
+
 let minus = h2 (fun a b ->
     let (SomeInterval a1 a2) = a in
     let (SomeInterval b1 b2) = b in
     SomeInterval (a1 `minus` b2) (a2 `minus` b1)
   )
+
+let lemma_minus_correct x y x' y': Lemma (correct_bin_op_abstraction (fun a b -> a - b) minus lift_cst includes x y x' y') = ()
 
 let unaryMinus = h1 (fun a -> let (SomeInterval a1 a2) = a in
                             SomeInterval (unaryMinus a2) (unaryMinus a1))
@@ -130,6 +158,40 @@ let times = h2 (fun l r ->
     let choices = (a `times` c, a `times` d, b `times` c, b `times` d) in
     SomeInterval (min4 choices) (max4 choices)
   )
+
+type si = x: interval {SomeInterval? x /\ (let SomeInterval l r = x
+             in l `gt` SomeInt 0 && r `gt` SomeInt 0)}
+
+type int' = n : int {n > 0}
+type eint' = n : extInt {SomeInt? n /\ (let SomeInt i = n in i > 0)}
+
+let intervalP n = SomeInt? n && (let SomeInt i = n in i > 0)
+
+let lemma_simplify_for_int' a c b d: Lemma (
+   (intervalP a && intervalP b && intervalP c && intervalP d && b `gt` a && d `gt` c) ==> (
+     let ( * ) = ExtInt.times in
+     let choices = (a * c, a * d, b * c, b * d) in
+     (min4 choices) = a * c /\ (max4 choices) = b * d
+   )
+) = if (intervalP a && intervalP b && intervalP c && intervalP d && b `gt` a && d `gt` c) then () else ()
+
+let lemma_mult_correct (l0:int{l0 > 0 }) (r0:int{r0 >= l0})
+                       (l1:int{l1 > 0 }) (r1:int{r1 >= l1})
+                       (c0:int{c0 >= l0 /\ c0 <= r0})
+                       (c1:int{c1 >= l1 /\ c1 <= r1})
+                       : Lemma (correct_bin_op_abstraction Mul.op_Star times lift_cst includes (mkInterval l0 r0) (mkInterval l1 r1) c0 c1) =
+  assert_norm (c0 `Mul.op_Star` c1 >= l0 `Mul.op_Star` l1);
+  assert_norm (c0 `Mul.op_Star` c1 <= r0 `Mul.op_Star` r1);
+  let SomeInterval (SomeInt r_l) (SomeInt r_r) = times (mkInterval l0 r0) (mkInterval l1 r1) in
+  assert_norm (r_l == l0 `Mul.op_Star` l1);
+  assert_norm (c0 `Mul.op_Star` c1 >= r_l);
+  assert (r_r == r0 `Mul.op_Star` r1);
+  assert (c0 `Mul.op_Star` c1 <= r_r);
+  assert (includes
+            (lift_cst (c0 `Mul.op_Star` c1))
+            (SomeInterval (SomeInt r_l) (SomeInt r_r))
+         );
+  ()
 
 private
 let div = divide

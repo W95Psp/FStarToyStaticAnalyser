@@ -37,6 +37,11 @@ let le a b : bool = (eq a b) || (lt a b)
 let ge a b : bool = not (lt a b)
 let gt a b : bool = (ge a b) && (not (eq a b))
 
+let lemma_lt a b : Lemma (a < b <==> SomeInt a `lt` SomeInt b) = ()
+let lemma_gt a b : Lemma (a > b <==> SomeInt a `gt` SomeInt b) = ()
+let lemma_le a b : Lemma (a <= b <==> SomeInt a `le` SomeInt b) = ()
+let lemma_ge a b : Lemma (a >= b <==> SomeInt a `ge` SomeInt b) = ()
+
 let min a b = if lt a b then a else b
 let max a b = if lt a b then b else a
 
