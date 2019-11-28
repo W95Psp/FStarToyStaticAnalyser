@@ -17,7 +17,7 @@ let join sep l = fold_right
 					""
 
 
-instance tupleHasToString #t1 #t2 [| hasToString t1 |] [| hasToString t2 |] = {
+instance tupleHasToString #t1 #t2 [| hasToString t1 |] [| hasToString t2 |]: hasToString (t1 * t2) = {
 	toString = fun (a,b) -> join "" ["("; toString a; ", "; toString b; ")"]
 }
 private

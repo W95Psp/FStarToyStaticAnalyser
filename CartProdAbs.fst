@@ -19,7 +19,7 @@ let lt (#ta #tb: Type) [| hasPartialOrder ta |] [| hasPartialOrder tb |]
                      ((a, b): (ta*tb)) ((a', b'): (ta*tb))
                      = a `po` a' && b `po` b'
 
-let _ = assert (isPartialOrder lt)
+// let _ = assert (isPartialOrder lt)
 
 
 instance tupAbsDomHasPartialOrder (a b: Type) [| hasPartialOrder a |] [| hasPartialOrder b |]: hasPartialOrder (a * b) = { po = lt }

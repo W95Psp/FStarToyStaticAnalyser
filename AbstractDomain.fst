@@ -21,6 +21,7 @@ class hasAbstractDomain a = {
 }
 
 let mkAbstractDomain #a [| hasPartialOrder a |] union inter bottom top widen narrow assign aeq isBottom
+    : hasAbstractDomain a
     = {
         ab_dom_po = solve
       ; union = union
@@ -45,6 +46,7 @@ class hasAbstractOperators a = {
 }
 let mkAbstractOperators #a [| hasAbstractDomain a |] [| hasDefaultValue a |]
   a_op_unary_minus a_op_plus a_op_minus a_op_times a_op_div
+  : hasAbstractOperators a
   = {
     abstract_domain  = solve
   ; default_value    = solve

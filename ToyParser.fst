@@ -145,5 +145,5 @@ let fullProg_parser: parser fullProg =
   fp (fun x -> let (a, b) = wfFakeConv x in FullProg a b) lFakeInstr_parser
 
 
-let parse_toy_language: string -> (either fullProg string) = make (fullProg_parser <<*> eof)
+let parse_toy_language: (s: string{String.length s > 0}) -> (either fullProg string) = make (fullProg_parser <<*> eof)
 

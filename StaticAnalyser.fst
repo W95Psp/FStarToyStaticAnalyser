@@ -69,7 +69,9 @@ let rec backward_analysis_aexp #a [| hasGaloisConnection int a |] [| hasAbstract
   | LAExpDiv   e1 e2  -> op2 backward_aop_div   e1 e2
 
 
-let all_bottom #a [| hasAbstractDomain a |] (st: enumerableMap a) = {_em_data = (fun _ -> bottom); _em_keys = st._em_keys}
+let all_bottom #a [| hasAbstractDomain a |] (st: enumerableMap a)
+  : enumerableMap a
+  = {_em_data = (fun _ -> bottom); _em_keys = st._em_keys}
 
 let is_bottom #a [| hasAbstractDomain a |] (st: enumerableMap a) =
     List.Tot.Base.existsb (fun k -> isBottom (em_get st k)) st._em_keys
@@ -244,6 +246,6 @@ let rec static_analysis_instr #a [| hasToString a |] [| hasAbstractOperators a |
 let static_analysis_fullProg #a [| hasToString a |] [| hasAbstractOperators a |] [| hasAbstractDomain a |] [| hasGaloisConnection int a |] [| hasZeroOrLess a |]
                              state (FullProg funs prog) = 
                                match function_call_safe funs prog with
-                               | None -> Inl (static_analysis_instr funs state prog)
+                               | None -> Inl (static_analysis_instr #a funs state prog)
                                | Some x -> Inr x 
- 
+
