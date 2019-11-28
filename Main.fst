@@ -107,7 +107,7 @@ let filter_ext ext name = get_ext name = ext
 //let ff (): ML (list unit) = []
 
 let main_h (): ML (list unit) =
-  let basedir = "../prog-example/" in
+  let basedir = "./prog-example/" in
   let app = strcat basedir in
   let l = mi_readdir basedir in
   mi_print_string (anyListHasToString.toString l);
