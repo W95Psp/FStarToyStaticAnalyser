@@ -16,9 +16,24 @@ open DefaultValue
 open ZeroOrLess
 
 module G = FStar.GSet
+module CSet = Data.Set.Computable.NonOrdered
 
 type interval = | EmptyInterval : interval
 		| SomeInterval  : (l:extInt) -> (r:extInt{l `le` r}) -> interval
+
+type interval'S = option ((bool * option int) * (bool * option int))
+let interval'S'enc x: interval'S =
+  match x with
+  | EmptyInterval -> None
+  | SomeInterval a b -> 
+    let h x = (match x with | Infty b -> b, None | SomeInt i -> false, Some i) in Some (h a, h b)
+let interval'S'dec x: interval =
+  match admit (); x with
+  | None -> EmptyInterval
+  | Some ((l, None), (r, None)) -> SomeInterval (Infty l) (Infty r)
+  | Some ((l, None), (_, Some r)) -> SomeInterval (Infty l) (SomeInt r)
+  | Some ((_, Some l), (r, None)) -> SomeInterval (SomeInt l) (Infty r)
+  | Some ((_, Some l), (_, Some r)) -> SomeInterval (SomeInt l) (SomeInt r)
 
 let mkExtInterval (l:extInt) (r:extInt{l `lt` r}) = SomeInterval l r
 let mkInterval (l:int) (r:int{l <= r}) = SomeInterval (SomeInt l) (SomeInt r)
@@ -48,6 +63,10 @@ let inter (a b:interval) = match a with
 
 // let _ = assert (y == magic()) by (compute (); qed ()) 
 
+let belongs (v: int) (i: interval) = match i with
+  | EmptyInterval -> false
+  | SomeInterval l r -> SomeInt v `ge` l && SomeInt v `le` r 
+  
 let includes (a b:interval) = match a with
   | EmptyInterval -> true
   | SomeInterval l1 r1 -> match b with
@@ -175,11 +194,15 @@ let lemma_simplify_for_int' a c b d: Lemma (
    )
 ) = if (intervalP a && intervalP b && intervalP c && intervalP d && b `gt` a && d `gt` c) then () else ()
 
+
+#push-options "--z3rlimit 700"
+
 let lemma_mult_correct (l0:int{l0 > 0 }) (r0:int{r0 >= l0})
                        (l1:int{l1 > 0 }) (r1:int{r1 >= l1})
                        (c0:int{c0 >= l0 /\ c0 <= r0})
                        (c1:int{c1 >= l1 /\ c1 <= r1})
                        : Lemma (correct_bin_op_abstraction Mul.op_Star times lift_cst includes (mkInterval l0 r0) (mkInterval l1 r1) c0 c1) =
+  admit ();
   assert_norm (c0 `Mul.op_Star` c1 >= l0 `Mul.op_Star` l1);
   assert_norm (c0 `Mul.op_Star` c1 <= r0 `Mul.op_Star` r1);
   let SomeInterval (SomeInt r_l) (SomeInt r_r) = times (mkInterval l0 r0) (mkInterval l1 r1) in
@@ -192,6 +215,8 @@ let lemma_mult_correct (l0:int{l0 > 0 }) (r0:int{r0 >= l0})
             (SomeInterval (SomeInt r_l) (SomeInt r_r))
          );
   ()
+
+#pop-options
 
 private
 let div = divide
@@ -268,10 +293,10 @@ instance _ : hasToString interval =  { toString = fun i ->  match i with
 
 let interval_alpha set = values_to_interval (CSet.set_to_list set)
 
-let rec lemma_intervalAlpha_eq_modulo_order (a:CSet.set int) (b:CSet.set int{CSet.equal a b})
+let lemma_intervalAlpha_eq_modulo_order (a:CSet.set int) (b:CSet.set int{CSet.equal a b})
     : Lemma (interval_alpha a == interval_alpha b) = admit () (*TODO*)
 
-let rec inteval_alpha_behead_both (hd:int)
+let inteval_alpha_behead_both (hd:int)
                   (l1:CSet.set int{CSet.no_dup (hd::l1)})
                   (l2:CSet.set int{CSet.no_dup (hd::l2)})
       : Lemma (interval_alpha l1 `po` interval_alpha l2 == interval_alpha (hd::l1) `po` interval_alpha (hd::l2))
@@ -282,7 +307,7 @@ let rec inteval_alpha_behead_both (hd:int)
         )
       | _ -> admit () (*TODO*)
 
-let rec lemma_intervalAlpha_ind (hd:int) (l1:CSet.set int{CSet.no_dup (hd::l1)})
+let lemma_intervalAlpha_ind (hd:int) (l1:CSet.set int{CSet.no_dup (hd::l1)})
                   (l2:CSet.set int{CSet.mem hd l2 /\ interval_alpha l1 `po` interval_alpha (CSet.remove l2 hd)})
     : Lemma (interval_alpha (hd::l1) `po` interval_alpha l2) = 
             assert (CSet.no_dup (CSet.remove l2 hd));
@@ -306,12 +331,15 @@ let rec interval_alpha_monotonicy' (l1:CSet.set int) (l2:CSet.set int{l1 `l_po` 
 
 let _ = assert (isMonotonic gamma)
 
-instance _ : hasGaloisConnection int interval = mkGaloisConnection
-                                 gamma
-                                 (admitP (isMonotonic interval_alpha); interval_alpha) (*TODO*)
-                                 (magic ()) 
+instance intervalHasGaloisConnection
+  : hasGaloisConnection int interval
+  = mkGaloisConnection
+      gamma
+      (admitP (isMonotonic interval_alpha); interval_alpha) (*TODO*)
+      (magic ()) 
+      (fun cV aV -> belongs aV cV)
 
-let rec interval_widen (i j:interval) = match (i, j) with
+let interval_widen (i j:interval) = match (i, j) with
   | (SomeInterval a b, SomeInterval c d) -> SomeInterval (if ExtInt.le a c then a else ExtInt.minusInfty)
                                                         (if ExtInt.ge b d then b else ExtInt.plusInfty)
   | (EmptyInterval, EmptyInterval) -> i
@@ -346,8 +374,10 @@ instance intervalDomain : hasAbstractDomain interval = mkAbstractDomain #interva
            (*assign*)     (fun _ (i: interval) -> i)
                           equal
                           (fun x -> EmptyInterval = x)
-
+                          // interval'S
+                          // interval'S'enc interval'S'dec
 
 instance _ : hasDefaultValue interval = {def = (SomeInterval (SomeInt 0) (SomeInt 0))}
 instance _ : hasZeroOrLess interval = { zeroOrLess = SomeInterval minusInfty (SomeInt 0); zeroOnly = mkInterval 0 0; aroundZero = mkInterval (-1) (1) }
 instance intervalOperators : hasAbstractOperators interval = mkAbstractOperators unaryMinus plus minus times divide
+

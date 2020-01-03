@@ -2,7 +2,7 @@ module ToyLanguageDef
 open FStar.Tactics.Typeclasses
 open ToString
 
-open EnumerableMap
+open Data.Map.Enumerable.NonOrdered
 
 module L = FStar.List.Tot.Base
 

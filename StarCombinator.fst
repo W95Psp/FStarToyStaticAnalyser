@@ -1,1 +1,0 @@
-StarCombinator/StarCombinator.fst

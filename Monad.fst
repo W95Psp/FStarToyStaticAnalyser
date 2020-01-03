@@ -1,5 +1,7 @@
 module Monad
 
+(*
+
 open FStar.Tactics.Typeclasses
 
 (* Fails... due to unification? check it out *)
@@ -49,3 +51,6 @@ open Functor
 
 instance monad_functor #m (d : monad m) : functor m =
   { fmap = (fun #_ #_ f x -> bind #_ #_ #m x (fun xx -> return #_ #m (f xx))); }
+
+
+*)

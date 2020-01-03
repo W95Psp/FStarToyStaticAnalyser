@@ -2,9 +2,9 @@ module GaloisConnection
 
 open FStar.Tactics.Typeclasses
 open PartialOrder
-module CSet = CSet
+module CSet = Data.Set.Computable.NonOrdered
 open FStar.GSet
-open CSetPO
+open Data.Set.Computable.NonOrdered.PartialOrder
 
 class hasGaloisConnection (c:eqtype) a = {
      c_po  : hasPartialOrder c
@@ -14,6 +14,7 @@ class hasGaloisConnection (c:eqtype) a = {
    ; galois_wf : (sa:a) -> (sc:CSet.set c) ->
 		 Lemma (CSet.cset_to_set sc `l_po` (gamma sa) <==> sa `l_po` (alpha sc)) // TODO <=>
    ; alpha': c -> a
+   ; getBooleanPredicate: a -> (c -> bool)
 }
 
 let mkGaloisConnection (#c:eqtype) #a
@@ -24,6 +25,7 @@ let mkGaloisConnection (#c:eqtype) #a
 			     (galois_wf : (sa:a) -> (sc:CSet.set c) -> 
 					Lemma (CSet.cset_to_set sc `l_po` (gamma sa) /\ sa `l_po` (alpha sc))
 			     )
+                             getBooleanPredicate
   = {
 	c_po      = solve
       ; a_po      = solve
@@ -31,4 +33,5 @@ let mkGaloisConnection (#c:eqtype) #a
       ; alpha     = alpha
       ; galois_wf = galois_wf
       ; alpha'    = (fun c -> alpha (CSet.singleton c))
+      ; getBooleanPredicate = getBooleanPredicate
     }

@@ -5,20 +5,18 @@ This module implements the core functions (leveraging AbstractDomain & GaloisCon
 module StaticAnalyser
 
 open FStar.GSet
-module CS = CSet
+module CS = Data.Set.Computable.NonOrdered
 open FStar.Tactics.Typeclasses
 
 open GaloisConnection
 open ToyLanguageDef
-open EnumerableMap
+open Data.Map.Enumerable.NonOrdered
 open AbstractDomain
 open ZeroOrLess
 open PartialOrder
 
 module Parser = ToyParser
-module L = FStar.List.Pure.Base
-module LL = FStar.List.Tot.Base
-module MyIO = MyIO
+module L = FStar.List.Tot
 
 type mem a = enumerableMap a 
 
@@ -108,12 +106,12 @@ let rec analyse_bexp #a [| hasAbstractOperators a |] [| hasAbstractDomain a |] [
   | _ -> st
   )
 
-open MyIO
 open ToString
+open MyIO
 
 let prt str = mi_debug_print_string str
 
-let fail #a (reason:string): a = let x = MyIO.mi_fail ("ERROR: "^reason) in magic ()
+// let fail #a (reason:string): a = let x = MyIO.mi_fail ("ERROR: "^reason) in magic ()
 
 let lookupFun funDefs funName = 
   let rec h funs = (match funs with
@@ -128,9 +126,9 @@ let rec check_calls funDefs body: option string  =
       let x = "In assignment \"" ^ toString body ^ "\": the function " ^ toString fname in
       match lookupFun funDefs fname with
       | Some (args_name, _) -> 
-                              if LL.length args_name = LL.length args then
+                              if L.length args_name = L.length args then
                                  None
-                              else Some (x ^ " was given " ^ toString (LL.length args) ^ " arguments, instead of " ^ toString (LL.length args_name))
+                              else Some (x ^ " was given " ^ toString (L.length args) ^ " arguments, instead of " ^ toString (L.length args_name))
       | None -> Some (x ^ " was not found")
     )          
     | LInstrSeq a b -> _ <-- check_calls funDefs a; check_calls funDefs b
@@ -141,7 +139,7 @@ let rec check_calls funDefs body: option string  =
 let rec function_call_safe funDefs instr: option string = 
   let bind v f = (match v with | None -> f () | _ -> v) in
   _ <-- check_calls funDefs instr;
-  LL.fold_left (fun x (FunDef _ _ b) -> _ <-- x; check_calls funDefs b) None funDefs
+  L.fold_left (fun x (FunDef _ _ b) -> _ <-- x; check_calls funDefs b) None funDefs
 
 let ( @$ ) f x = f x
 
@@ -151,6 +149,12 @@ let rec lst_contains (#a:eqtype) (x:a) (l: list a) = match l with
 
 // private
 // let assign_variable (LInstrAssign name v) = 
+
+let rec zip #a #b (l1: list a) (l2: list b): list (a * b) =
+    match l1,l2 with
+    | [], [] -> []
+    | hd1::tl1, hd2::tl2 -> (hd1,hd2)::(zip tl1 tl2)
+    | _, _ -> []
 
 (* This functions perform static analysis on instructions, i.e. on full programs *)
 let rec static_analysis_instr #a [| hasToString a |] [| hasAbstractOperators a |] [| hasAbstractDomain a |] [| hasGaloisConnection int a |] [| hasZeroOrLess a |]
@@ -167,9 +171,9 @@ let rec static_analysis_instr #a [| hasToString a |] [| hasAbstractOperators a |
        | AssignLAExp v -> em_set st name @$ static_analysis_aexp st v
        | AssignCall funName args ->
            let Some (args_name, fun_body) = lookupFun funs funName in
-           let l = L.zip args_name args in
-           let toExec: lInstr = (LL.fold_left LInstrSeq LInstrSkip (
-                       ( LL.map (fun (name, value) -> name =. (AssignLAExp value)) l
+           let l = zip args_name args in
+           let toExec: lInstr = (L.fold_left LInstrSeq LInstrSkip (
+                       ( L.map (fun (name, value) -> name =. (AssignLAExp value)) l
                      @ [ fun_body ])
                 )) in
            let st' = (

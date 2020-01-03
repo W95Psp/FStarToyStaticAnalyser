@@ -2,7 +2,7 @@ module Main
 
 open FStar.FunctionalExtensionality
 open FStar.GSet
-module CS = CSet
+module CS = Data.Set.Computable.NonOrdered
 open Interval
 open FStar.Tactics
 open FStar.Tactics.Typeclasses
@@ -15,7 +15,7 @@ open DefaultValue
 open ToyLanguageDef
 open ToyLanguageInterpreter
 open ToString
-open EnumerableMap
+open Data.Map.Enumerable.NonOrdered
 open AbstractDomain
 open ZeroOrLess
 open StaticAnalyser

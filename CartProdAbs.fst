@@ -51,11 +51,14 @@ let aeq #ta #tb [| hasAbstractDomain ta |] [| hasAbstractDomain tb |]
 //let _gamma #ta #tb [| hasGaloisConnection ta |] [| hasGaloisConnection tb |]   = 
 
 module G = FStar.GSet
-module C = CSet
+module C = Data.Set.Computable.NonOrdered
 
 instance tupAbsDomHasGaloisConnection (#c: eqtype) (#a #b:Type) [| hasPartialOrder c |] [| hasPartialOrder a |] [| hasPartialOrder b |] [| hasGaloisConnection c a |] [| hasGaloisConnection c b |]  = mkGaloisConnection #c #(a*b) #solve #(tupAbsDomHasPartialOrder a b)
                                     (admit (); fun (a, b) ->  G.union (gamma a) (gamma b))
                                     (admit (); fun a -> (alpha a, alpha a)) (magic ())
+                                    (fun (av1, av2) cv -> getBooleanPredicate av1 cv
+                                                    && getBooleanPredicate av2 cv
+                                    )
 
 let isBottomCart  (#a #b:Type) [| hasAbstractDomain a |] [| hasAbstractDomain b |] ((x, y):(a*b)) = isBottom x || isBottom y
 

@@ -16,6 +16,7 @@ open DefaultValue
 open ZeroOrLess
 
 module G = FStar.GSet
+module CSet = Data.Set.Computable.NonOrdered
 
 type congruence = | SomeCongruence : (a:nat) -> (b:int{if a = 0 then True else (b < a /\ b >= 0)}) -> congruence
                   | EmptyCongruence : congruence
@@ -53,7 +54,6 @@ let ( =~ ) (x: int) (c: congruence) =
   match c with
   | SomeCongruence x' y -> is_in_congruence x x' y
   | _ -> false
-
 
 let std_gcd (a: int{a <> 0}) (b: int): Tot (n:nat{n <> 0}) =
   let rec h (a': natstar) (b': nat): Tot (n:natstar) (decreases %[a' + b'; if a' > b' then 0 else 1]) = 
@@ -224,11 +224,13 @@ instance _ : hasPartialOrder congruence = { po = (admit (); includes) }
 
 let congruence_alpha set = values_to_congruence (CSet.set_to_list set)
 
-instance _ : hasGaloisConnection int congruence = mkGaloisConnection
-                                 gamma
-                                 (admitP (isMonotonic congruence_alpha); congruence_alpha) (*TODO*)
-                                 (magic ()) 
-
+instance congruenceHasGaloisConnection
+  : hasGaloisConnection int congruence
+    = mkGaloisConnection
+       gamma
+       (admitP (isMonotonic congruence_alpha); congruence_alpha) (*TODO*)
+       (magic ()) 
+       (fun cV aV -> aV =~ cV)
 
 let rec congruence_widen (i j:congruence) =
   let bind = gbind EmptyCongruence in

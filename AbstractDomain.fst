@@ -18,9 +18,12 @@ class hasAbstractDomain a = {
   assign: string -> a -> a;
   aeq : a -> a -> bool;
   isBottom : a -> bool;
+  // representableType: Type;
+  // enc_RepresentableType: a -> representableType;
+  // dec_RepresentableType: representableType -> a;
 }
 
-let mkAbstractDomain #a [| hasPartialOrder a |] union inter bottom top widen narrow assign aeq isBottom
+let mkAbstractDomain #a [| hasPartialOrder a |] union inter bottom top widen narrow assign aeq isBottom //rep eRep dRep
     : hasAbstractDomain a
     = {
         ab_dom_po = solve
@@ -33,6 +36,9 @@ let mkAbstractDomain #a [| hasPartialOrder a |] union inter bottom top widen nar
       ; assign = assign
       ; aeq = aeq
       ; isBottom = isBottom
+      // ; representableType = rep
+      // ; enc_RepresentableType = eRep
+      // ; dec_RepresentableType = dRep
     }
 
 class hasAbstractOperators a = {
